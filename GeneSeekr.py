@@ -110,16 +110,18 @@ class blastparser(threading.Thread): # records, genomes):
             for record in records:
                 for alignment in record.alignments:
                     for hsp in alignment.hsps:
+                        col = 'N'
                         if hsp.identities == alignment.length:
-                            for genome in genomes:
-                                for gene in genomes[genome]:
-                                    threadlock.acquire()  # precaution
-                                    if genome not in plusdict:
-                                        plusdict[genome] = defaultdict(int)
-                                    if gene not in plusdict[genome]:
-                                        plusdict[genome][gene] = 0
-                                    plusdict[genome][gene] = alignment.title.split('_')[-1]  # MLST type
-                                    threadlock.release()  # precaution for populate dictionary with GIL
+                            col = alignment.title.split('_')[-1]  # MLST type
+                        for genome in genomes:
+                            for gene in genomes[genome]:
+                                threadlock.acquire()  # precaution
+                                if genome not in plusdict:
+                                    plusdict[genome] = defaultdict(str)
+                                if gene not in plusdict[genome]:
+                                    plusdict[genome][gene] = 0
+                                plusdict[genome][gene] = alignment.title.split('_')[-1]  # MLST type
+                                threadlock.release()  # precaution for populate dictionary with GIL
             dotter()
             mm.close()
 
@@ -162,17 +164,23 @@ def blaster(path, targets, out, threshold, name):
     print "[%s] Now parsing BLAST database searches" % (time.strftime("%H:%M:%S"))
     sys.stdout.write('[%s]' % (time.strftime("%H:%M:%S")))
     # count = 80
-    parsethreader(blastpath, fastas)
+    jsonfile = '%sgenedict_bak.json' % path
+    if os.path.isfile(jsonfile):
+        plusdict = json.load(open(jsonfile))
+    else:
+        parsethreader(blastpath, fastas)
+        json.dump(plusdict, open(jsonfile, 'w'), sort_keys=True, indent=4, separators=(',', ': '))
     csvheader = 'Strain'
     row = ""
     rowcount = 0
     for genomerow in plusdict:
         row += "\n" + genomerow
         rowcount += 1
-        for generow in sorted(plusdict[genomerow]):
+        for generow in plusdict[genomerow]:
             if rowcount <= 1:
                 csvheader += ',' + generow
             # for plusrow in plusdict[genomerow][generow]:
+            print generow, genomerow, plusdict[genomerow]
             row += ',' + str(plusdict[genomerow][generow])
     with open("%s%s_results_%s.csv" % (out, name, time.strftime("%Y.%m.%d.%H.%M.%S")), 'wb') as csvfile:
         csvfile.write(csvheader)
