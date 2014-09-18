@@ -163,13 +163,7 @@ def blaster(path, targets, out, threshold, name):
         json.dump(blastpath, open('%sblastxmldict.json' % targets, 'w'), sort_keys=True, indent=4, separators=(',', ': '))
     print "[%s] Now parsing BLAST database searches" % (time.strftime("%H:%M:%S"))
     sys.stdout.write('[%s]' % (time.strftime("%H:%M:%S")))
-    # count = 80
-    jsonfile = '%sgenedict_bak.json' % path
-    if os.path.isfile(jsonfile):
-        plusdict = json.load(open(jsonfile))
-    else:
-        parsethreader(blastpath, fastas)
-        json.dump(plusdict, open(jsonfile, 'w'), sort_keys=True, indent=4, separators=(',', ': '))
+    parsethreader(blastpath, fastas)
     csvheader = 'Strain'
     row = ""
     rowcount = 0
