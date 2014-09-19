@@ -120,7 +120,7 @@ class blastparser(threading.Thread): # records, genomes):
                                     plusdict[genome] = defaultdict(str)
                                 if gene[-2:] not in plusdict[genome]:
                                     plusdict[genome][gene] = 0
-                                plusdict[genome][gene] = col
+                                plusdict[genome][gene[-2:]] = col
                                 threadlock.release()  # precaution for populate dictionary with GIL
             dotter()
             mm.close()

@@ -31,16 +31,31 @@ def jsonUpGoer(jsonfile, markers, genomes, outdir):
     return genedict
 
 def compareType(TargetrMLST, nonTargetrMLST):
-    typing = defaultdict(int)
+    '''
+    Compare the rMLST types by making sure that the alleles are exactly the same size
+    Record list of genomes not included in non-target selection
+    '''
+    typing = defaultdict(dict)
+    removed = defaultdict(list)
     for genome in TargetrMLST:
+        if genome not in typing:
+            typing[genome] = defaultdict(int)
         for gene in sorted(TargetrMLST[genome]):
             for nontarget in nonTargetrMLST:
-                if nontarget not in typing:  # if nontarget genome not in typing dictionary then add it
-                    typing[nontarget] = 0
+                if nontarget not in typing[genome]:  # if nontarget genome not in typing dictionary then add it
+                    typing[genome][nontarget] = 0
+                if TargetrMLST[genome][gene] == nonTargetrMLST[genome][gene]:
+                    typing[genome][nontarget] += 1
+    for genome in typing:
+        for nontarget in typing[genome]:
+            if typing[genome][nontarget] == 53: # Actual number of alleles ... I hate you Keith
+                removed[genome].append(nontarget)
+                typing[genome].pop(nontarget)
 
 
 
-def sorter(markers, genomes, outdir, target):
+
+def sorter(markers, genomes, outdir):
     '''Strip first allele off each locus to feed into geneseekr and return dictionary
     '''
     smallMLST = outdir + "rMLST/"
@@ -51,16 +66,16 @@ def sorter(markers, genomes, outdir, target):
     genomes = outdir + "Genomes/"
     jsonfile = '%sgenedict.json' %  markers
     nonTargetrMLST = jsonUpGoer(jsonfile, markers, genomes, outdir)
-    if os.path.isdir(target):  # Determine if target is a folder
-        targets = glob.glob(target + "*")
-        targetjson = '%sgenedict.json' % target
-    elif os.path.isfile(target):
-        targets = target
-        targetjson = '%sgenedict.json' % outdir
-    else:
-        print "The variable \"--targets\" is not a folder or file "
-        return
-    targetrMLST = jsonUpGoer(targetjson, targets, genomes, outdir)
+    # if os.path.isdir(target):  # Determine if target is a folder
+    #     targets = glob.glob(target + "*")
+    #     targetjson = '%sgenedict.json' % target
+    # elif os.path.isfile(target):
+    #     targets = target
+    #     targetjson = '%sgenedict.json' % outdir
+    # else:
+    #     print "The variable \"--targets\" is not a folder or file "
+    #     return
+    # targetrMLST = jsonUpGoer(targetjson, targets, genomes, outdir)
 
 
 
@@ -75,7 +90,7 @@ parser.add_argument('--version', action='version', version='%(prog)s v0.5')
 parser.add_argument('-o', '--output', required=True, help='Specify output directory')
 parser.add_argument('-i', '--input', required=True, help='Specify input genome fasta folder')
 parser.add_argument('-m', '--marker', required=True, help='Specify rMLST folder')
-parser.add_argument('-t', '--target', required=True, help='Specify target genome or folder')
+# parser.add_argument('-t', '--target', required=True, help='Specify target genome or folder')
 args = vars(parser.parse_args())
 
 sorter(args['marker'], args['input'], args['output'])
