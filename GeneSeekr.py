@@ -159,6 +159,9 @@ def blaster(markers, strains, out, name):
         genomes = glob.glob(strains + "*.fa")
     elif os.path.isfile(strains):
         genomes = strains
+    else:
+        print "The variable \"genomes\" is not a folder or file "
+        return
     sys.stdout.write("[%s] Creating necessary databases for BLAST" % (time.strftime("%H:%M:%S")))
     #push markers to threads
     makedbthreads(fastas)

@@ -18,6 +18,13 @@ def retriever(genomes, output):
             for fasta in glob.glob(folders + "/Best_Assemblies/*"):
                 shutil.copy(fasta, output + "Genomes")
 
+def jsonUpGoer(jsonfile):
+    if os.path.isfile(jsonfile):
+        genedict = json.load(open(jsonfile))
+    else:
+        genedict = GeneSeekr.blaster(markers, genomes, outdir, "USSpip")
+        json.dump(genedict, open(jsonfile, 'w'), sort_keys=True, indent=4, separators=(',', ': '))
+
 
 def sorter(markers, genomes, outdir, target):
     '''Strip first allele off each locus to feed into geneseekr and return dictionary
@@ -38,23 +45,17 @@ def sorter(markers, genomes, outdir, target):
     #         break
     start = time.time()
     jsonfile = '%sgenedict.json' %  markers
-    if os.path.isfile(jsonfile):
-        genedict = json.load(open(jsonfile))
-    else:
-        genedict = GeneSeekr.blaster(markers, genomes, outdir, "USSpip")
-        json.dump(genedict, open(jsonfile, 'w'), sort_keys=True, indent=4, separators=(',', ': '))
+    jsonUpGoer(jsonfile)
     end = start - time.time()
     print "Elapsed time for rMLST is %ss with %ss per genome" % (end, end/len(genomes))
     if os.path.isdir(target):  # Determine if target is a folder
         targets = glob.glob(target + "*")
-        jsonfile = '%sgenedict.json' % target
-        if os.path.isfile(jsonfile):
-            genedict = json.load(open(jsonfile))
-        else:
-            genedict = GeneSeekr.blaster(markers, genomes, outdir, "USSpip")
-            json.dump(genedict, open(jsonfile, 'w'), sort_keys=True, indent=4, separators=(',', ': '))
+        targetjson = '%sgenedict.json' % target
     elif os.path.isfile(target):
-        targets =
+        targets = target
+        targetjson = '%sgenedict.json' % outdir
+
+
 
 
 
