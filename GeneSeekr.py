@@ -141,7 +141,7 @@ def parsethreader(blastpath, genomes):
         # time.sleep(0.05) # Previously used to combat open file error
         handle.close()
         parsequeue.put((xml, blastpath[xml], mm, progress))
-        parsequeue.join()
+
 
 def blaster(markers, strains, out, name):
     '''
@@ -177,6 +177,7 @@ def blaster(markers, strains, out, name):
     print "[%s] Now parsing BLAST database searches" % (time.strftime("%H:%M:%S"))
     sys.stdout.write('[%s]' % (time.strftime("%H:%M:%S")))
     parsethreader(blastpath, fastas)
+    parsequeue.join()
     csvheader = 'Strain'
     row = ""
     rowcount = 0
