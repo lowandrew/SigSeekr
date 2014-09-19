@@ -45,8 +45,16 @@ def sorter(markers, genomes, outdir, target):
         json.dump(genedict, open(jsonfile, 'w'), sort_keys=True, indent=4, separators=(',', ': '))
     end = start - time.time()
     print "Elapsed time for rMLST is %ss with %ss per genome" % (end, end/len(genomes))
-    if os.path.exists(target):  # Determine if target is a folder
-        glob.glob(target + "*")
+    if os.path.isdir(target):  # Determine if target is a folder
+        targets = glob.glob(target + "*")
+        jsonfile = '%sgenedict.json' % target
+        if os.path.isfile(jsonfile):
+            genedict = json.load(open(jsonfile))
+        else:
+            genedict = GeneSeekr.blaster(markers, genomes, outdir, "USSpip")
+            json.dump(genedict, open(jsonfile, 'w'), sort_keys=True, indent=4, separators=(',', ': '))
+    elif os.path.isfile(target):
+        targets =
 
 
 

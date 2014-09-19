@@ -155,7 +155,10 @@ def blaster(markers, strains, out, name):
     #retrieve markers from input
     fastas = glob.glob(markers + "*.fas")
     #retrieve genomes from input
-    genomes = glob.glob(strains + "*.fa")
+    if os.path.isdir(strains):
+        genomes = glob.glob(strains + "*.fa")
+    elif os.path.isfile(strains):
+        genomes = strains
     sys.stdout.write("[%s] Creating necessary databases for BLAST" % (time.strftime("%H:%M:%S")))
     #push markers to threads
     makedbthreads(fastas)
