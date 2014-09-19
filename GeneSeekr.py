@@ -120,7 +120,7 @@ class blastparser(threading.Thread): # records, genomes):
                                     plusdict[genome] = defaultdict(str)
                                 if gene not in plusdict[genome]:
                                     plusdict[genome][gene] = 0
-                                plusdict[genome][gene] = alignment.title.split('_')[-1]  # MLST type
+                                plusdict[genome][gene] = col
                                 threadlock.release()  # precaution for populate dictionary with GIL
             dotter()
             mm.close()
@@ -174,7 +174,6 @@ def blaster(path, targets, out, threshold, name):
             if rowcount <= 1:
                 csvheader += ',' + generow
             # for plusrow in plusdict[genomerow][generow]:
-            print generow, genomerow, plusdict[genomerow]
             row += ',' + str(plusdict[genomerow][generow])
     with open("%s%s_results_%s.csv" % (out, name, time.strftime("%Y.%m.%d.%H.%M.%S")), 'wb') as csvfile:
         csvfile.write(csvheader)

@@ -8,7 +8,7 @@ then to prepare the data for strain-specific probe idenification
 from argparse import ArgumentParser
 from Bio import SeqIO
 from textwrap import fill
-import os, glob, GeneSeekr, shutil, json
+import os, glob, GeneSeekr, shutil, json, time
 
 def retriever(genomes, output):
     if not os.path.exists(output + "Genomes"):
@@ -19,7 +19,7 @@ def retriever(genomes, output):
                 shutil.copy(fasta, output + "Genomes")
 
 
-def sorter(markers, genomes, outdir):
+def sorter(markers, genomes, outdir, target):
     '''Strip first allele off each locus to feed into geneseekr and return dictionary
     '''
     smallMLST = outdir + "rMLST/"
@@ -36,12 +36,17 @@ def sorter(markers, genomes, outdir):
     #         with open("%s%s.fasta" %(smallMLST, record.id[0:10]), 'w') as handle:
     #             handle.write(">%s\n%s" % (record.id, fill(str(record.seq), width=80)))
     #         break
+    start = time.time()
     jsonfile = '%sgenedict.json' %  markers
     if os.path.isfile(jsonfile):
         genedict = json.load(open(jsonfile))
     else:
         genedict = GeneSeekr.blaster(markers, genomes, outdir, 0, "USSpip")
         json.dump(genedict, open(jsonfile, 'w'), sort_keys=True, indent=4, separators=(',', ': '))
+    end = start - time.time()
+    print "Elapsed time for rMLST is %ss with %ss per genome" % (end, end/len(genomes))
+    if os.path.exists(target):
+        glob.glob()
 
 
 
@@ -52,6 +57,7 @@ parser.add_argument('--version', action='version', version='%(prog)s v0.5')
 parser.add_argument('-o', '--output', required=True, help='Specify output directory')
 parser.add_argument('-i', '--input', required=True, help='Specify input genome fasta folder')
 parser.add_argument('-m', '--marker', required=True, help='Specify rMLST folder')
+parser.add_argument('-t', '--target', required=True, help='Specify target genome or folder')
 args = vars(parser.parse_args())
 
 sorter(args['marker'], args['input'], args['output'])
