@@ -78,7 +78,7 @@ class runblast(threading.Thread):
             threadlock.release()
             if not os.path.isfile(out):
                 dotter()
-                blastn = NcbiblastnCommandline(query=genome, db=fasta, evalue=1e-40, out=out, outfmt=5)
+                blastn = NcbiblastnCommandline(query=genome, db=fasta, evalue=1e-40, out=out, outfmt=5, perc_identity=100)
                 stdout, stderr = blastn()
             if not any(blastpath):
                 print out
@@ -107,21 +107,24 @@ class blastparser(threading.Thread): # records, genomes):
             global plusdict, genedict
             xml, genomes, mm, num = self.parsequeue.get()
             records = NCBIXML.parse(mm)
-            for record in records:
-                for alignment in record.alignments:
-                    for hsp in alignment.hsps:
-                        col = 'N'
-                        if hsp.identities == alignment.length:
-                            col = alignment.title.split('_')[-1]  # MLST type
-                        for genome in genomes:
-                            for gene in genomes[genome]:
-                                threadlock.acquire()  # precaution
-                                if genome not in plusdict:
-                                    plusdict[genome] = defaultdict(str)
-                                if gene[-2:] not in plusdict[genome]:
-                                    plusdict[genome][gene] = 0
-                                plusdict[genome][gene[-2:]] = col
-                                threadlock.release()  # precaution for populate dictionary with GIL
+            numhsp = sum(line.count('<Hsp>') for line in iter(mm.readline, ""))
+            if numhsp >= 0:
+                mm.seek(0)
+                for record in records:
+                    for alignment in record.alignments:
+                        for hsp in alignment.hsps:
+                            threadlock.acquire()  # precaution
+                            col = 'N'
+                            if hsp.identities == alignment.length:
+                                col = alignment.title.split('_')[-1]  # MLST type
+                            for genome in genomes:
+                                for gene in genomes[genome]:
+                                    if genome not in plusdict:
+                                        plusdict[genome] = defaultdict(str)
+                                    if gene[-2:] not in plusdict[genome]:
+                                        plusdict[genome][gene] = 0
+                                    plusdict[genome][gene[-2:]] = col
+                            threadlock.release()  # precaution for populate dictionary with GIL
             dotter()
             mm.close()
 
@@ -141,6 +144,7 @@ def parsethreader(blastpath, genomes):
         # time.sleep(0.05) # Previously used to combat open file error
         handle.close()
         parsequeue.put((xml, blastpath[xml], mm, progress))
+        parsequeue.join()
 
 
 def blaster(markers, strains, out, name):
@@ -168,16 +172,17 @@ def blaster(markers, strains, out, name):
     print "\n[%s] BLAST database(s) created" % (time.strftime("%H:%M:%S"))
     if os.path.isfile('%sblastxmldict.json' % strains):
         print "[%s] Loading BLAST data from file" % (time.strftime("%H:%M:%S"))
+        sys.stdout.write('[%s]' % (time.strftime("%H:%M:%S")))
         blastpath = json.load(open('%sblastxmldict.json' % strains))
     else:
         print "[%s] Now performing BLAST database searches" % (time.strftime("%H:%M:%S"))
+        sys.stdout.write('[%s]' % (time.strftime("%H:%M:%S")))
         # make blastn threads and retrieve xml file locations
         blastnthreads(fastas, genomes)
         json.dump(blastpath, open('%sblastxmldict.json' % strains, 'w'), sort_keys=True, indent=4, separators=(',', ': '))
-    print "[%s] Now parsing BLAST database searches" % (time.strftime("%H:%M:%S"))
+    print "\n[%s] Now parsing BLAST database searches" % (time.strftime("%H:%M:%S"))
     sys.stdout.write('[%s]' % (time.strftime("%H:%M:%S")))
     parsethreader(blastpath, fastas)
-    parsequeue.join()
     csvheader = 'Strain'
     row = ""
     rowcount = 0
@@ -192,4 +197,5 @@ def blaster(markers, strains, out, name):
     with open("%s%s_results_%s.csv" % (out, name, time.strftime("%Y.%m.%d.%H.%M.%S")), 'wb') as csvfile:
         csvfile.write(csvheader)
         csvfile.write(row)
+    print "\n[%s] Now parsing BLAST database searches" % (time.strftime("%H:%M:%S"))
     return plusdict

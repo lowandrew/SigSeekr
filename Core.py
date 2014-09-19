@@ -26,8 +26,9 @@ def jsonUpGoer(jsonfile, markers, genomes, outdir):
     else:
         genedict = GeneSeekr.blaster(markers, genomes, outdir, "USSpip")
         json.dump(genedict, open(jsonfile, 'w'), sort_keys=True, indent=4, separators=(',', ': '))
-    end = start - time.time()
-    print "Elapsed time for rMLST is %ss with %ss per genome" % (end, end/len(genomes))
+    end = time.time() - start
+    print "\n Elapsed time for rMLST is %ss with %ss per genome" % (end, end/float(len(genomes)))
+    print len(genomes), genomes
     return genedict
 
 def compareType(TargetrMLST, nonTargetrMLST):
