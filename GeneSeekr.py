@@ -118,7 +118,7 @@ class blastparser(threading.Thread): # records, genomes):
                                 threadlock.acquire()  # precaution
                                 if genome not in plusdict:
                                     plusdict[genome] = defaultdict(str)
-                                if gene not in plusdict[genome]:
+                                if gene[-2:] not in plusdict[genome]:
                                     plusdict[genome][gene] = 0
                                 plusdict[genome][gene] = col
                                 threadlock.release()  # precaution for populate dictionary with GIL
@@ -160,7 +160,7 @@ def blaster(markers, strains, out, name):
     elif os.path.isfile(strains):
         genomes = strains
     else:
-        print "The variable \"genomes\" is not a folder or file "
+        print "The variable \"--genomes\" is not a folder or file"
         return
     sys.stdout.write("[%s] Creating necessary databases for BLAST" % (time.strftime("%H:%M:%S")))
     #push markers to threads
@@ -183,9 +183,9 @@ def blaster(markers, strains, out, name):
     for genomerow in plusdict:
         row += "\n" + genomerow
         rowcount += 1
-        for generow in plusdict[genomerow]:
+        for generow in sorted(plusdict[genomerow]):
             if rowcount <= 1:
-                csvheader += ',' + generow
+                csvheader += ', BACT0000' + generow.zfill(2)
             # for plusrow in plusdict[genomerow][generow]:
             row += ',' + str(plusdict[genomerow][generow])
     with open("%s%s_results_%s.csv" % (out, name, time.strftime("%Y.%m.%d.%H.%M.%S")), 'wb') as csvfile:

@@ -8,6 +8,7 @@ then to prepare the data for strain-specific probe idenification
 from argparse import ArgumentParser
 from Bio import SeqIO
 from textwrap import fill
+from collections import defaultdict
 import os, glob, GeneSeekr, shutil, json, time
 
 def retriever(genomes, output):
@@ -18,12 +19,22 @@ def retriever(genomes, output):
             for fasta in glob.glob(folders + "/Best_Assemblies/*"):
                 shutil.copy(fasta, output + "Genomes")
 
-def jsonUpGoer(jsonfile):
+def jsonUpGoer(jsonfile, markers, genomes, outdir):
     if os.path.isfile(jsonfile):
         genedict = json.load(open(jsonfile))
     else:
         genedict = GeneSeekr.blaster(markers, genomes, outdir, "USSpip")
         json.dump(genedict, open(jsonfile, 'w'), sort_keys=True, indent=4, separators=(',', ': '))
+    return genedict
+
+def compareType(TargetrMLST, nonTargetrMLST):
+    typing = defaultdict(int)
+    for genome in TargetrMLST:
+        for gene in sorted(TargetrMLST[genome]):
+            for nontarget in nonTargetrMLST:
+                if nontarget not in typing:  # if nontarget genome not in typing dictionary then add it
+                    typing[nontarget] = 0
+
 
 
 def sorter(markers, genomes, outdir, target):
@@ -35,17 +46,9 @@ def sorter(markers, genomes, outdir, target):
     if not os.path.exists(outdir + "tmp/"):
         os.mkdir(outdir + "tmp/")
     genomes = outdir + "Genomes/"
-
-    # if not os.path.exists(smallMLST):
-    #     os.mkdir(smallMLST)
-    # for fasta in glob.glob(markers + "/*.fas"):
-    #     for record in SeqIO.parse(fasta, "fasta"):
-    #         with open("%s%s.fasta" %(smallMLST, record.id[0:10]), 'w') as handle:
-    #             handle.write(">%s\n%s" % (record.id, fill(str(record.seq), width=80)))
-    #         break
     start = time.time()
     jsonfile = '%sgenedict.json' %  markers
-    jsonUpGoer(jsonfile)
+    nonTargetrMLST = jsonUpGoer(jsonfile, markers, genomes, outdir)
     end = start - time.time()
     print "Elapsed time for rMLST is %ss with %ss per genome" % (end, end/len(genomes))
     if os.path.isdir(target):  # Determine if target is a folder
@@ -54,6 +57,16 @@ def sorter(markers, genomes, outdir, target):
     elif os.path.isfile(target):
         targets = target
         targetjson = '%sgenedict.json' % outdir
+    else:
+        print "The variable \"--targets\" is not a folder or file "
+        return
+    targetrMLST = jsonUpGoer(targetjson, targets, genomes, outdir)
+    nTtyp = defaultdict(dict)
+    Ttyp = defaultdict(dict)
+    for genome in nonTargetrMLST:
+        for gene in nonTargetrMLST[genome]:
+
+
 
 
 
