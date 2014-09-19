@@ -149,6 +149,7 @@ def blaster(markers, strains, out, name):
     markers are the the target fasta folder that with be db'd and BLAST'd against strains folder
     out is the working directory where the blastxml folder will be placed
     name is the partial title of the csv output
+    ALL PATHS REQUIRE TRAILING SLASHES!!!
     '''
     global count, genedict, blastpath
     #retrieve markers from input

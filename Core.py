@@ -45,8 +45,8 @@ def sorter(markers, genomes, outdir, target):
         json.dump(genedict, open(jsonfile, 'w'), sort_keys=True, indent=4, separators=(',', ': '))
     end = start - time.time()
     print "Elapsed time for rMLST is %ss with %ss per genome" % (end, end/len(genomes))
-    if os.path.exists(target):  # Determine if
-        glob.glob()
+    if os.path.exists(target):  # Determine if target is a folder
+        glob.glob(target + "*")
 
 
 
