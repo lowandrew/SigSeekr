@@ -143,24 +143,30 @@ def parsethreader(blastpath, genomes):
         parsequeue.put((xml, blastpath[xml], mm, progress))
         parsequeue.join()
 
-def blaster(path, targets, out, threshold, name):
+def blaster(markers, strains, out, name):
+    '''
+    The blaster function is the stack manager of the module
+    markers are the the target fasta folder that with be db'd and BLAST'd against strains folder
+    out is the working directory where the blastxml folder will be placed
+    name is the partial title of the csv output
+    '''
     global count, genedict, blastpath
     #retrieve markers from input
-    fastas = glob.glob(path + "*.fas")
+    fastas = glob.glob(markers + "*.fas")
     #retrieve genomes from input
-    genomes = glob.glob(targets + "*.fa")
+    genomes = glob.glob(strains + "*.fa")
     sys.stdout.write("[%s] Creating necessary databases for BLAST" % (time.strftime("%H:%M:%S")))
     #push markers to threads
     makedbthreads(fastas)
     print "\n[%s] BLAST database(s) created" % (time.strftime("%H:%M:%S"))
-    if os.path.isfile('%sblastxmldict.json' % targets):
+    if os.path.isfile('%sblastxmldict.json' % strains):
         print "[%s] Loading BLAST data from file" % (time.strftime("%H:%M:%S"))
-        blastpath = json.load(open('%sblastxmldict.json' % targets))
+        blastpath = json.load(open('%sblastxmldict.json' % strains))
     else:
         print "[%s] Now performing BLAST database searches" % (time.strftime("%H:%M:%S"))
         # make blastn threads and retrieve xml file locations
         blastnthreads(fastas, genomes)
-        json.dump(blastpath, open('%sblastxmldict.json' % targets, 'w'), sort_keys=True, indent=4, separators=(',', ': '))
+        json.dump(blastpath, open('%sblastxmldict.json' % strains, 'w'), sort_keys=True, indent=4, separators=(',', ': '))
     print "[%s] Now parsing BLAST database searches" % (time.strftime("%H:%M:%S"))
     sys.stdout.write('[%s]' % (time.strftime("%H:%M:%S")))
     parsethreader(blastpath, fastas)
