@@ -20,11 +20,14 @@ def retriever(genomes, output):
                 shutil.copy(fasta, output + "Genomes")
 
 def jsonUpGoer(jsonfile, markers, genomes, outdir):
+    start = time.time()
     if os.path.isfile(jsonfile):
         genedict = json.load(open(jsonfile))
     else:
         genedict = GeneSeekr.blaster(markers, genomes, outdir, "USSpip")
         json.dump(genedict, open(jsonfile, 'w'), sort_keys=True, indent=4, separators=(',', ': '))
+    end = start - time.time()
+    print "Elapsed time for rMLST is %ss with %ss per genome" % (end, end/len(genomes))
     return genedict
 
 def compareType(TargetrMLST, nonTargetrMLST):
@@ -46,11 +49,8 @@ def sorter(markers, genomes, outdir, target):
     if not os.path.exists(outdir + "tmp/"):
         os.mkdir(outdir + "tmp/")
     genomes = outdir + "Genomes/"
-    start = time.time()
     jsonfile = '%sgenedict.json' %  markers
     nonTargetrMLST = jsonUpGoer(jsonfile, markers, genomes, outdir)
-    end = start - time.time()
-    print "Elapsed time for rMLST is %ss with %ss per genome" % (end, end/len(genomes))
     if os.path.isdir(target):  # Determine if target is a folder
         targets = glob.glob(target + "*")
         targetjson = '%sgenedict.json' % target
@@ -61,10 +61,6 @@ def sorter(markers, genomes, outdir, target):
         print "The variable \"--targets\" is not a folder or file "
         return
     targetrMLST = jsonUpGoer(targetjson, targets, genomes, outdir)
-    nTtyp = defaultdict(dict)
-    Ttyp = defaultdict(dict)
-    for genome in nonTargetrMLST:
-        for gene in nonTargetrMLST[genome]:
 
 
 
