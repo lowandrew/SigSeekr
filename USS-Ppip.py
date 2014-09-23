@@ -19,7 +19,7 @@ class runblast(threading.Thread):
             global blastpath, plusdict
             genome, fasta, blastexist = self.blastqueue.get()
 
-            blastn = NcbiblastnCommandline(query=genome, db=fasta, evalue=1e-40, out=out, outfmt=5, perc_identity=100)
+            blastn = NcbiblastnCommandline(query=genome, db=fasta, evalue=1e-40, outfmt=5, perc_identity=100)
             stdout, stderr = blastn()
             self.blastqueue.task_done()
 
