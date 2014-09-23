@@ -114,16 +114,14 @@ class blastparser(threading.Thread): # records, genomes):
                     for alignment in record.alignments:
                         for hsp in alignment.hsps:
                             threadlock.acquire()  # precaution
-                            col = 'N'
                             if hsp.identities == alignment.length:
-                                col = alignment.title.split('_')[-1]  # MLST type
-                            for genome in genomes:
-                                for gene in genomes[genome]:
-                                    if genome not in plusdict:
-                                        plusdict[genome] = defaultdict(str)
-                                    if gene[-2:] not in plusdict[genome]:
-                                        plusdict[genome][gene] = 0
-                                    plusdict[genome][gene[-2:]] = col
+                                for genome in genomes:
+                                    for gene in genomes[genome]:
+                                        if genome not in plusdict:
+                                            plusdict[genome] = defaultdict(str)
+                                        if gene[-2:] not in plusdict[genome]:
+                                            plusdict[genome][gene] = 0
+                                        plusdict[genome][gene] = alignment.title.split('_')[-1]
                             threadlock.release()  # precaution for populate dictionary with GIL
             dotter()
             mm.close()
@@ -155,47 +153,51 @@ def blaster(markers, strains, out, name):
     name is the partial title of the csv output
     ALL PATHS REQUIRE TRAILING SLASHES!!!
     '''
+    start =time.time()
     global count, genedict, blastpath
     #retrieve markers from input
-    fastas = glob.glob(markers + "*.fas")
+    genes = glob.glob(markers + "*.fas")
     #retrieve genomes from input
     if os.path.isdir(strains):
         genomes = glob.glob(strains + "*.fa")
     elif os.path.isfile(strains):
-        genomes = strains
+        genomes = list(strains)
     else:
         print "The variable \"--genomes\" is not a folder or file"
         return
     sys.stdout.write("[%s] Creating necessary databases for BLAST" % (time.strftime("%H:%M:%S")))
     #push markers to threads
-    makedbthreads(fastas)
+    makedbthreads(genes)
     print "\n[%s] BLAST database(s) created" % (time.strftime("%H:%M:%S"))
     if os.path.isfile('%sblastxmldict.json' % strains):
         print "[%s] Loading BLAST data from file" % (time.strftime("%H:%M:%S"))
-        sys.stdout.write('[%s]' % (time.strftime("%H:%M:%S")))
         blastpath = json.load(open('%sblastxmldict.json' % strains))
     else:
         print "[%s] Now performing BLAST database searches" % (time.strftime("%H:%M:%S"))
         sys.stdout.write('[%s]' % (time.strftime("%H:%M:%S")))
         # make blastn threads and retrieve xml file locations
-        blastnthreads(fastas, genomes)
+        blastnthreads(genes, genomes)
+        print '\n'
         json.dump(blastpath, open('%sblastxmldict.json' % strains, 'w'), sort_keys=True, indent=4, separators=(',', ': '))
-    print "\n[%s] Now parsing BLAST database searches" % (time.strftime("%H:%M:%S"))
-    sys.stdout.write('[%s]' % (time.strftime("%H:%M:%S")))
-    parsethreader(blastpath, fastas)
+    print "[%s] Now parsing BLAST database searches" % (time.strftime("%H:%M:%S"))
+    sys.stdout.write('[%s] ' % (time.strftime("%H:%M:%S")))
+    parsethreader(blastpath, genes)
     csvheader = 'Strain'
     row = ""
     rowcount = 0
     for genomerow in plusdict:
         row += "\n" + genomerow
         rowcount += 1
-        for generow in sorted(plusdict[genomerow]):
+        for generow in sorted(genes):
             if rowcount <= 1:
-                csvheader += ', BACT0000' + generow.zfill(2)
-            # for plusrow in plusdict[genomerow][generow]:
-            row += ',' + str(plusdict[genomerow][generow])
+                csvheader += ', ' + generow[-14:-4]
+            if generow in plusdict[genomerow]:
+                row += ',' + str(plusdict[genomerow][generow[-14:-4]])
+            else:
+                row += ',N'
     with open("%s%s_results_%s.csv" % (out, name, time.strftime("%Y.%m.%d.%H.%M.%S")), 'wb') as csvfile:
         csvfile.write(csvheader)
         csvfile.write(row)
-    print "\n[%s] Now parsing BLAST database searches" % (time.strftime("%H:%M:%S"))
+    end = time.time() - start
+    print "\n[%s] Elapsed time for rMLST is %ss with %ss per genome" % (time.strftime("%H:%M:%S"), end, end/float(len(genomes)))
     return plusdict
