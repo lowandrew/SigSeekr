@@ -8,8 +8,9 @@ then to prepare the data for strain-specific probe idenification
 from argparse import ArgumentParser
 from Bio import SeqIO
 from textwrap import fill
+from copy import deepcopy
 from collections import defaultdict
-import os, glob, GeneSeekr, shutil, json, time
+import os, glob, GeneSeekr, shutil, json, USSPpip
 
 def retriever(genomes, output):
     if not os.path.exists(output + "Genomes"):
@@ -19,11 +20,11 @@ def retriever(genomes, output):
             for fasta in glob.glob(folders + "/Best_Assemblies/*"):
                 shutil.copy(fasta, output + "Genomes")
 
-def jsonUpGoer(jsonfile, markers, genomes, outdir):
+def jsonUpGoer(jsonfile, markers, genomes, outdir, method):
     if os.path.isfile(jsonfile):
         genedict = json.load(open(jsonfile))
     else:
-        genedict = GeneSeekr.blaster(markers, genomes, outdir, "USSpip")
+        genedict = GeneSeekr.blaster(markers, genomes, outdir, "USSpip_" + method)
         json.dump(genedict, open(jsonfile, 'w'), sort_keys=True, indent=4, separators=(',', ': '))
     return genedict
 
@@ -42,17 +43,16 @@ def compareType(TargetrMLST, nonTargetrMLST):
             for nontarget in nonTargetrMLST:
                 if nontarget not in typing[genome]:  # if nontarget genome not in typing dictionary then add it
                     typing[genome][nontarget] = 0
-                if TargetrMLST[genome][gene] == nonTargetrMLST[genome][gene]:
-                    typing[genome][nontarget] += 1
-    for genome in typing:
-        for nontarget in typing[genome]:
+                if gene in TargetrMLST[genome] and gene in nonTargetrMLST[nontarget]:
+                    if TargetrMLST[genome][gene] == nonTargetrMLST[nontarget][gene]:
+                        typing[genome][nontarget] += 1
+    typing_bak = deepcopy(typing)
+    for genome in typing_bak:
+        for nontarget in typing_bak[genome]:
             if typing[genome][nontarget] == 53: # Actual number of alleles ... I hate you Keith
                 removed[genome].append(nontarget)
                 typing[genome].pop(nontarget)
     return typing, removed
-
-
-
 
 def sorter(markers, genomes, outdir, target):
     '''Strip first allele off each locus to feed into geneseekr and return dictionary
@@ -64,7 +64,7 @@ def sorter(markers, genomes, outdir, target):
         os.mkdir(outdir + "tmp/")
     genomes = outdir + "Genomes/"
     jsonfile = '%sgenedict.json' %  outdir
-    nonTargetrMLST = jsonUpGoer(jsonfile, markers, genomes, outdir)
+    nonTargetrMLST = jsonUpGoer(jsonfile, markers, genomes, outdir, 'nontarget')
     if os.path.isdir(target):  # Determine if target is a folder
         targets = glob.glob(target + "*")
         targetjson = '%stargetdict.json' % target
@@ -74,10 +74,12 @@ def sorter(markers, genomes, outdir, target):
     else:
         print "The variable \"--targets\" is not a folder or file "
         return
-    # TargetrMLST = jsonUpGoer(targetjson, targets, genomes, outdir)
-    # typing, removed = compareType(TargetrMLST, nonTargetrMLST)
-    # json.dump(typing, open(outdir + 'typing.json', 'w'), sort_keys=True, indent=4, separators=(',', ': '))
-    # json.dump(removed, open(outdir + 'removed.json', 'w'), sort_keys=True, indent=4, separators=(',', ': '))
+    TargetrMLST = jsonUpGoer(targetjson, markers, targets, outdir, 'target')
+    typing, removed = compareType(TargetrMLST, nonTargetrMLST)
+    json.dump(typing, open(outdir + 'typing.json', 'w'), sort_keys=True, indent=4, separators=(',', ': '))
+    json.dump(removed, open(outdir + 'removed.json', 'w'), sort_keys=True, indent=4, separators=(',', ': '))
+    USSPpip.ssPCR(typing, genomes, genomes)
+
 
 
 

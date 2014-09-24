@@ -119,9 +119,12 @@ class blastparser(threading.Thread): # records, genomes):
                                     for gene in genomes[genome]:
                                         if genome not in plusdict:
                                             plusdict[genome] = defaultdict(str)
-                                        if gene[-2:] not in plusdict[genome]:
+                                        if gene not in plusdict[genome]:
                                             plusdict[genome][gene] = 0
-                                        plusdict[genome][gene] = alignment.title.split('_')[-1]
+                                        if plusdict[genome][gene] == 0:
+                                            plusdict[genome][gene] = alignment.title.split('_')[-1]
+                                        else:
+                                            plusdict[genome][gene] += ' ' + alignment.title.split('_')[-1]
                             threadlock.release()  # precaution for populate dictionary with GIL
             dotter()
             mm.close()
@@ -159,9 +162,11 @@ def blaster(markers, strains, out, name):
     genes = glob.glob(markers + "*.fas")
     #retrieve genomes from input
     if os.path.isdir(strains):
-        genomes = glob.glob(strains + "*.fa")
+        genomes = glob.glob(strains + "*.f*a")
+        print '[%s] GeneSeekr input is path with %s genomes' % (time.strftime("%H:%M:%S"), len(genomes))
     elif os.path.isfile(strains):
-        genomes = list(strains)
+        genomes = [strains,]
+        print 'GeneSeeker input is a single file \n%s' % genomes
     else:
         print "The variable \"--genomes\" is not a folder or file"
         return
@@ -191,7 +196,7 @@ def blaster(markers, strains, out, name):
         for generow in sorted(genes):
             if rowcount <= 1:
                 csvheader += ', ' + generow[-14:-4]
-            if generow in plusdict[genomerow]:
+            if generow[-14:-4] in plusdict[genomerow]:
                 row += ',' + str(plusdict[genomerow][generow[-14:-4]])
             else:
                 row += ',N'
