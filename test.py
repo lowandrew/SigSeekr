@@ -4,7 +4,7 @@ import cStringIO, time, glob, re, shutil
 
 
 genome = '/nas/Pipeline_development/Typing/Genomes/'
-for file in glob.glob(genome + "*'*'*.f*a"):
+for file in glob.glob(genome + "*'*.f*a"):
     newname = re.sub('\'', "", file)
     shutil.move(file, newname)
     print file

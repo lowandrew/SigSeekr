@@ -128,24 +128,24 @@ class blastparser(threading.Thread): # records, genomes):
                             threadlock.release()  # precaution for populate dictionary with GIL
             dotter()
             mm.close()
-
+            # TODO: Add genefinder-like functionality here using a queue
             self.parsequeue.task_done()
 
 def parsethreader(blastpath, genomes):
     global plusdict
-    dotter()
     for i in range(len(genomes)):
         threads = blastparser(parsequeue)
         threads.setDaemon(True)
         threads.start()
     progress = len(blastpath)
     for xml in blastpath:
-        handle = open(xml, 'r')
-        mm = mmap.mmap(handle.fileno(), 0, access=mmap.ACCESS_READ)
-        # time.sleep(0.05) # Previously used to combat open file error
-        handle.close()
-        parsequeue.put((xml, blastpath[xml], mm, progress))
-        parsequeue.join()
+        if os.path.getsize(xml) != 0:
+            handle = open(xml, 'r')
+            mm = mmap.mmap(handle.fileno(), 0, access=mmap.ACCESS_READ)
+            # time.sleep(0.05) # Previously used to combat open file error
+            handle.close()
+            parsequeue.put((xml, blastpath[xml], mm, progress))
+            parsequeue.join()
 
 
 def blaster(markers, strains, out, name):
@@ -156,11 +156,13 @@ def blaster(markers, strains, out, name):
     name is the partial title of the csv output
     ALL PATHS REQUIRE TRAILING SLASHES!!!
     '''
+    # TODO: Keep file extension when making dictionary and splice end of
     start =time.time()
     global count, genedict, blastpath
     #retrieve markers from input
     genes = glob.glob(markers + "*.fas")
     #retrieve genomes from input
+    print strains
     if os.path.isdir(strains):
         genomes = glob.glob(strains + "*.f*a")
         print '[%s] GeneSeekr input is path with %s genomes' % (time.strftime("%H:%M:%S"), len(genomes))

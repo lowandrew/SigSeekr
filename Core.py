@@ -49,7 +49,8 @@ def compareType(TargetrMLST, nonTargetrMLST):
     typing_bak = deepcopy(typing)
     for genome in typing_bak:
         for nontarget in typing_bak[genome]:
-            if typing[genome][nontarget] == 53: # Actual number of alleles ... I hate you Keith
+            #  TODO: add variable for allelic cutoff
+            if typing[genome][nontarget] >= 1:  # Actual number 53 of alleles ... I hate you Keith
                 removed[genome].append(nontarget)
                 typing[genome].pop(nontarget)
     return typing, removed
@@ -65,19 +66,16 @@ def sorter(markers, genomes, outdir, target):
     genomes = outdir + "Genomes/"
     jsonfile = '%sgenedict.json' %  outdir
     nonTargetrMLST = jsonUpGoer(jsonfile, markers, genomes, outdir, 'nontarget')
-    if os.path.isdir(target):  # Determine if target is a folder
-        targets = glob.glob(target + "*")
-        targetjson = '%stargetdict.json' % target
-    elif os.path.isfile(target):
-        targets = target
+    if os.path.exists(target):  # Determine if target is a folder
         targetjson = '%stargetdict.json' % outdir
     else:
         print "The variable \"--targets\" is not a folder or file "
         return
-    TargetrMLST = jsonUpGoer(targetjson, markers, targets, outdir, 'target')
+    TargetrMLST = jsonUpGoer(targetjson, markers, target, outdir, 'target')
     typing, removed = compareType(TargetrMLST, nonTargetrMLST)
     json.dump(typing, open(outdir + 'typing.json', 'w'), sort_keys=True, indent=4, separators=(',', ': '))
     json.dump(removed, open(outdir + 'removed.json', 'w'), sort_keys=True, indent=4, separators=(',', ': '))
+
     USSPpip.ssPCR(typing, genomes, genomes)
 
 
