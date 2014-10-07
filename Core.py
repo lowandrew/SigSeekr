@@ -6,8 +6,6 @@ To sort rMLST results and remove closely related sequences
 then to prepare the data for strain-specific probe idenification
 """
 from argparse import ArgumentParser
-from Bio import SeqIO
-from textwrap import fill
 from copy import deepcopy
 from collections import defaultdict
 import os, glob, GeneSeekr, shutil, json, USSPpip
@@ -35,7 +33,7 @@ def compareType(TargetrMLST, nonTargetrMLST):
     Requires target and non-target dictionaries as inputs
     '''
     typing = defaultdict(dict)
-    removed = defaultdict(list)
+    removed = defaultdict(dict)
     for genome in TargetrMLST:
         if genome not in typing:
             typing[genome] = defaultdict(int)
@@ -50,15 +48,14 @@ def compareType(TargetrMLST, nonTargetrMLST):
     for genome in typing_bak:
         for nontarget in typing_bak[genome]:
             #  TODO: add variable for allelic cutoff
-            if typing[genome][nontarget] >= 1:  # Actual number 53 of alleles ... I hate you Keith
-                removed[genome].append(nontarget)
-                typing[genome].pop(nontarget)
+            if not 30 < typing[genome][nontarget] < 51:
+                # Actual number of alleles: 53 ... I hate you Keith
+                removed[genome][nontarget] = typing[genome].pop(nontarget)
     return typing, removed
 
-def sorter(markers, genomes, outdir, target):
+def sorter(markers, genomes, outdir, target, evalue, estop):
     '''Strip first allele off each locus to feed into geneseekr and return dictionary
     '''
-    smallMLST = outdir + "rMLST/"
     if not os.path.exists(outdir + "Genomes/"):
         retriever(genomes, outdir)
     if not os.path.exists(outdir + "tmp/"):
@@ -75,15 +72,7 @@ def sorter(markers, genomes, outdir, target):
     typing, removed = compareType(TargetrMLST, nonTargetrMLST)
     json.dump(typing, open(outdir + 'typing.json', 'w'), sort_keys=True, indent=4, separators=(',', ': '))
     json.dump(removed, open(outdir + 'removed.json', 'w'), sort_keys=True, indent=4, separators=(',', ': '))
-
-    USSPpip.ssPCR(typing, genomes, genomes)
-
-
-
-
-
-
-
+    USSPpip.ssPCR(typing, genomes, genomes, evalue, estop, 200, 2)
 
 
 #Parser for arguments
@@ -93,7 +82,9 @@ parser.add_argument('-o', '--output', required=True, help='Specify output direct
 parser.add_argument('-i', '--input', required=True, help='Specify input genome fasta folder')
 parser.add_argument('-m', '--marker', required=True, help='Specify rMLST folder')
 parser.add_argument('-t', '--target', required=True, help='Specify target genome or folder')
+parser.add_argument('-e', '--evalue', default=1e-40, help='Specify elimination E-value lower limit (default 1e-40)')
+parser.add_argument('-s', '--estop', default=1e-90, help='Specify the upper E-value limit (default 1e-90)')
 # parser.add_argument('-t', '--target', required=True, help='Specify target genome or folder')
 args = vars(parser.parse_args())
 
-sorter(args['marker'], args['input'], args['output'], args['target'])
+sorter(args['marker'], args['input'], args['output'], args['target'], args['evalue'], args['estop'])

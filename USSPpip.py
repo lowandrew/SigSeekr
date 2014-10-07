@@ -16,11 +16,11 @@ threadlock = threading.Lock()
 recorddict = {}
 wordsize = [30, 25, 20, 20, 20, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 4, 4, 4, 4]
 result = True
+minLength = 200
 
 def blastparse(stdout, output, tname, ntname):
     # TODO: ADD minLength variable
-    minLength = 60
-    global recorddict
+    global recorddict, minLength
     handle = open(output, 'w')  # open the target fasta file for writing
     blast_handle = cStringIO.StringIO(stdout)  # Convert string to IO object for use in SearchIO using StringIO
     try:  # Necessary to avoid bad genomes
@@ -55,7 +55,7 @@ class runblast(threading.Thread):
         threading.Thread.__init__(self)
     def run(self):
         while True:
-            target, nontarget, tname, ntname, evalue = self.blastqueue.get()
+            target, nontarget, tname, ntname, evalue, word, t, count = self.blastqueue.get()
             threadlock.acquire()
             if os.path.getsize(target) != 0:
                 # BLASTn parameters
@@ -63,36 +63,38 @@ class runblast(threading.Thread):
                                                db=nontarget,
                                                evalue=evalue,
                                                outfmt=6,
-                                               perc_identity=99,
-                                               word_size=30)
+                                               perc_identity=96,
+                                               word_size=word)
                 stdout, stderr = blastn()
-                sys.stdout.write('[%s] ' % (time.strftime("%H:%M:%S")))
+                sys.stdout.write('[%s] [%s/%s] ' % (time.strftime("%H:%M:%S"), count, t))
                 if not stdout:
                     print colored("%s has no significant similarity to %s with an elimination E-value: %s" \
                           % (tname, ntname, str(evalue)), 'red')
                 else:
-                    print colored("Now eliminating %s sequences with significant similarity to %s with an elimination " \
-                          "E-value: %s" % (tname, ntname, str(evalue)), 'green', attrs=['blink'])
+                    print colored("Now eliminating %s sequences with significant similarity to %s with an "
+                                  "elimination E-value: %s" % (tname, ntname, str(evalue)), 'green', attrs=['blink'])
                     blastparse(stdout, target, tname, ntname)
             else:
                 global result
                 result = False
-                print 'Query file is empty'
             threadlock.release()
             self.blastqueue.task_done()
 
 
-def blastnthreads(target, targets, targetdir, nontargetdir, evalue):
-    '''Setup and create  threads for blastn and xml path'''
+def blastnthreads(target, targets, targetdir, nontargetdir, evalue, word):
+    """Setup and create  threads for blastn and passthrough"""
     targetPath = targetdir + target + ".fa"
     for i in range(len(target)):
         threads = runblast(blastqueue)
         threads.setDaemon(True)
         threads.start()
+    count = 0
     if os.path.getsize(targetPath) != 0:
+        t = len(targets[target])
         for nontarget in sorted(targets[target]):
             nontargetPath = nontargetdir + nontarget + ".fa"
-            blastqueue.put((targetPath, nontargetPath, target, nontarget, evalue))
+            count += 1
+            blastqueue.put((targetPath, nontargetPath, target, nontarget, evalue, word, t, count))
     else:
         return False
     blastqueue.join()
@@ -109,13 +111,13 @@ def restart(target, targetdir, unique):
     handle.close()
 
 
-def ssPCR(targets, targetdir, nontargetdir):
+def ssPCR(targets, targetdir, nontargetdir, evalue, estop, minlength, iterations):
     '''
     Targets and nontargets are imported as a list
     '''
     # TODO reassociate path with targets and nontargets and test if files exist
-    minLength = 60
-    evalue = 1e-100
+    global minLength
+    minLength = minlength
     nontargetPath = []
     unique = targetdir + "../Unique/"
     if not os.path.exists(unique):
@@ -129,28 +131,33 @@ def ssPCR(targets, targetdir, nontargetdir):
     print "[%s] There are %s target genomes and %s non-target genomes" % (time.strftime("%H:%M:%S"), len(targets), len(nontargetPath))
     for target in targets:
         print "[%s] Now parsing %s" % (time.strftime("%H:%M:%S"), target)
-        for e in range(int(log10(evalue)), -200, -1):
-            evalue = 10 ** e
-            blastnthreads(target, targets, unique, nontargetdir, evalue)
-            sys.stdout.write('[%s] ' % (time.strftime("%H:%M:%S")))
-            global result
-            if result:
-                # TODO: Add iterable word size
-                print 'Found Sequence(s) at E-value: ' + str(evalue)
-                break
-            else:
-                print 'Query file is empty'
-                restart(target, targetdir, unique)
+        for inc in range(iterations):
+            print "Iteration " + str(inc + 1)
+            if inc > len(wordsize):
+                inc = -1
+            word = wordsize[inc]
+            for e in range(int(log10(evalue)), int(log10(estop)), -1):
+                evalue = 10 ** e  # Increment evalue
+                blastnthreads(target, targets, unique, nontargetdir, evalue, word)  # BLASTn
+                sys.stdout.write('[%s] ' % (time.strftime("%H:%M:%S")))
+                global result
+                if result:
+                    print 'Found Sequence(s) at E-value: ' + str(evalue)
+                    break
+                else:
+                    print 'Query file is empty'
+                    restart(target, targetdir, unique)
+                    inc = 0
         uniquename = unique + target + '.unique.fasta'
-        uniquecount = 1
+        uniquecount = 0
         handle = open(uniquename, 'w')
         for id in recorddict:
             pattern = r'([^N]{' + re.escape(str(minLength)) + r',})' #  Find a sequence of at least the target length
             regex = re.compile(pattern)
             uniseq = regex.findall(str(recorddict[id].seq))
-            print 'Writing %s sequence(s) to file' % str(len(uniseq))
             for sequence in uniseq:
-                handle.write('>usid%s_%s_%s\n' % (uniquecount.zfill(4), target, id))
-                handle.write(sequence[1] + '\n')
                 uniquecount += 1
+                handle.write('>usid%s_%s_%s\n' % (str(uniquecount).zfill(4), target, id))
+                handle.write(sequence + '\n')
+        print 'Writing %s sequence(s) to file' % str(uniquecount)
         handle.close()
