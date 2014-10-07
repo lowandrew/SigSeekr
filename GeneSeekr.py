@@ -10,7 +10,6 @@ from threading import Thread
 from Queue import Queue
 from collections import defaultdict
 import subprocess, os, glob, time, sys, shlex, re, threading, json, mmap
-
 count = 0
 
 
@@ -61,6 +60,9 @@ def xmlout (fasta, genome):
     path = re.search('(.+)\/(.+)\/(.+?)\.fa', genome)
     return path, gene
 
+def blastcmd(genome, fasta, perc):
+
+    return stdout
 
 class runblast(threading.Thread):
     def __init__(self, blastqueue):
@@ -78,8 +80,14 @@ class runblast(threading.Thread):
             threadlock.release()
             if not os.path.isfile(out):
                 dotter()
-                blastn = NcbiblastnCommandline(query=genome, db=fasta, evalue=1e-40, out=out, outfmt=5, perc_identity=100)
-                stdout, stderr = blastn()
+                file = open(out, 'w')
+                for perc in range(100, 99, -1):
+                    blastn = NcbiblastnCommandline(query=genome, db=fasta, evalue=1e-40, outfmt=5, perc_identity=perc)
+                    stdout, stderr = blastn()
+                    if re.match('HSP', stdout) is not None:
+                        file.write(stdout)
+                        break
+                file.close()
             if not any(blastpath):
                 print out
             self.blastqueue.task_done()
@@ -121,10 +129,15 @@ class blastparser(threading.Thread): # records, genomes):
                                             plusdict[genome] = defaultdict(str)
                                         if gene not in plusdict[genome]:
                                             plusdict[genome][gene] = 0
-                                        if plusdict[genome][gene] == 0:
+                                        if plusdict[genome][gene] == 0 and hsp.identities == alignment.length:
                                             plusdict[genome][gene] = alignment.title.split('_')[-1]
-                                        else:
+                                        elif hsp.identities == alignment.length:
                                             plusdict[genome][gene] += ' ' + alignment.title.split('_')[-1]
+                                        else:
+                                            plusdict[genome][gene] = '%s (%s/%s)' % (alignment.title.split('_')[-1],
+                                                                                     hsp.identities,
+                                                                                     alignment.length)
+
                             threadlock.release()  # precaution for populate dictionary with GIL
             dotter()
             mm.close()
