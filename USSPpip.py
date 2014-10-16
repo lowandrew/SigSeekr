@@ -40,10 +40,9 @@ def blastparse(stdout, output, tname, ntname):
         recorddict_bak = deepcopy(recorddict)  # Copy the dictionary so we may iterate and modify the result
         for id in recorddict_bak:
             pattern = r'[^N]{'+ re.escape(str(minLength))+r'}' #  Find a sequence of at least the target length
-            try:
-                if (re.search(pattern, str(recorddict[id].seq))).group(0):
-                    SeqIO.write(recorddict[id], handle, "fasta")
-            except AttributeError:
+            if re.match(pattern, str(recorddict[id].seq)) is not None:
+                SeqIO.write(recorddict[id], handle, "fasta")
+            else:
                 # print 'Contig \'%s\' not written to file' % id
                 recorddict.pop(id)
     except ValueError:
