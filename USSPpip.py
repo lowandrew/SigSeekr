@@ -20,6 +20,7 @@ wordsize = [30, 25, 20, 20, 20, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 4, 4, 4, 4
 result = True
 minLength = 200
 
+
 def blastparse(stdout, output, tname, ntname):
     # TODO: ADD minLength variable
     global recorddict, minLength
@@ -34,30 +35,34 @@ def blastparse(stdout, output, tname, ntname):
                     if hsp.query_id in recorddict:
                         # For the Contig name in the target fasta dictionary mask using coordinates
                         if finish > begin:
-                            recorddict[hsp.query_id].seq = recorddict[hsp.query_id].seq[:begin] + \
-                                                        'N' * (finish - begin + 1) + recorddict[hsp.query_id].seq[finish:]
+                            recorddict[hsp.query_id].seq = \
+                                recorddict[hsp.query_id].seq[:begin] + 'N' * (finish - begin + 1) \
+                                + recorddict[hsp.query_id].seq[finish:]
                         else:
-                            recorddict[hsp.query_id].seq = recorddict[hsp.query_id].seq[:finish] + \
-                                                        'N' * (begin - finish + 1) + recorddict[hsp.query_id].seq[begin:]
+                            recorddict[hsp.query_id].seq \
+                                = recorddict[hsp.query_id].seq[:finish] + 'N' * (begin - finish + 1) \
+                                + recorddict[hsp.query_id].seq[begin:]
         recorddict_bak = deepcopy(recorddict)  # Copy the dictionary so we may iterate and modify the result
-        for id in recorddict_bak:
+        for idline in recorddict_bak:
             # pattern = r'[^N]{'+ re.escape(str(minLength))+r'}' #  Find a sequence of at least the target length
-            pattern = r'[ATCG]{30,}N{200,900}[ATCG]{30,}|[^N]{'+ re.escape(str(minLength))+r'}'
-            if re.match(pattern, str(recorddict[id].seq)) is not None:
-                SeqIO.write(recorddict[id], handle, "fasta")
+            pattern = r'[ATCG]{30,}N{200,900}[ATCG]{30,}|[^N]{' + re.escape(str(minLength))+r'}'
+            if re.match(pattern, str(recorddict[idline].seq)) is not None:
+                SeqIO.write(recorddict[idline], handle, "fasta")
             else:
                 # print 'Contig \'%s\' not written to file' % id
-                recorddict.pop(id)
+                recorddict.pop(idline)
     except ValueError:
         print 'Value Error: There was an error removing %s genome from %s' % (ntname, tname)
 import pygame
 pygame.init()
 from pygame.mixer import music
 
-class runblast(threading.Thread):
+
+class RunBlast(threading.Thread):
     def __init__(self, blastqueue):
         self.blastqueue = blastqueue
         threading.Thread.__init__(self)
+
     def run(self):
         while True:
             target, nontarget, tname, ntname, evalue, word, t, count = self.blastqueue.get()
@@ -75,8 +80,8 @@ class runblast(threading.Thread):
                 stdout, stderr = blastn()
                 sys.stdout.write('[%s] [%s/%s] ' % (time.strftime("%H:%M:%S"), count, t))
                 if not stdout:
-                    print colored("%s has no significant similarity to \"%s\" with an elimination E-value: %g" \
-                          % (tname, ntname, evalue), 'red')
+                    print colored("%s has no significant similarity to \"%s\" with an elimination E-value: %g"
+                                  % (tname, ntname, evalue), 'red')
 
                 else:
                     music.load('/run/media/blais/blastdrive/coin.wav')
@@ -91,32 +96,25 @@ class runblast(threading.Thread):
             self.blastqueue.task_done()
 
 
-def blastnthreads(target, targetnameext, nontargets, targetdir, nontargetdir, evalue, word):
+def blastnthreads(target, targetnameext, nontargets, targetdir, evalue, word):
     """Setup and create  threads for blastn and passthrough"""
-    targetPath = targetdir + targetnameext
+    targetpath = targetdir + targetnameext
     t = len(nontargets)
-    # for i in range(t):
-    #     threads = runblast(blastqueue)
-    #     threads.setDaemon(True)
-    #     threads.start()
     count = 0
-    if os.path.getsize(targetPath) != 0:
-        # t = len(targets[target])
+    if os.path.getsize(targetpath) != 0:
         for nontarget in sorted(nontargets, key=len, reverse=True):
-            # nontargets = nontargetdir + nontarget + ".fa"
             ntname = nontarget.split('/')[-1].split('.')[0].replace('_', ' ')
             count += 1
             nontargetdb = nontarget.split('.')[0]
             if target != ntname:
-                blastqueue.put((targetPath, nontargetdb, target, ntname, evalue, word, t, count))
+                blastqueue.put((targetpath, nontargetdb, target, ntname, evalue, word, t, count))
     else:
         return None
     blastqueue.join()
 
+
 def restart(target, unique):
-    '''
-    Write the target fasta file to memory as a dictionary and replace the old target file for iterative purposes
-    '''
+    """Write the target fasta file to memory as a dictionary and replace the old target file for iterative purposes"""
     global recorddict
     recorddict = {}
     copy(target, unique)
@@ -126,23 +124,17 @@ def restart(target, unique):
     handle.close()
 
 
-def SigSeekr(targets, sigtarget, nontargets, nontargetdir, evalue, estop, minlength, iterations):
-    '''
-    Targets and nontargets are imported as a list
-    '''
-    # TODO reassociate path with targets and nontargets and test if files exist
+def SigSeekr(targets, nontargets, nontargetdir, evalue, estop, minlength, iterations):
+    """Targets and nontargets are imported as a list"""
     global minLength
     minLength = minlength
     # nontargets = []
     unique = nontargetdir + "../Unique/"
     if not os.path.exists(unique):
         os.mkdir(unique)
-    # restart(sigtarget, unique)
-    # for nontarget in nontargets:
-    #     if nontarget not in nontargets:
-    #         nontargets.append(nontarget + '.fa')
     makedbthreads(nontargets)
-    print "[%s] There are %s target genomes and %s non-target genomes" % (time.strftime("%H:%M:%S"), len(targets), len(nontargets))
+    print "[%s] There are %s target genomes and %s non-target genomes" \
+          % (time.strftime("%H:%M:%S"), len(targets), len(nontargets))
     counter = 0
     for target in targets:
         restart(target, unique)
@@ -151,7 +143,7 @@ def SigSeekr(targets, sigtarget, nontargets, nontargetdir, evalue, estop, minlen
         counter += 1
         print "[%s] Now parsing target #%i: %s" % (time.strftime("%H:%M:%S"), counter, targetname)
         for i in range(len(nontargets)):
-            threads = runblast(blastqueue)
+            threads = RunBlast(blastqueue)
             threads.setDaemon(True)
             threads.start()
         for inc in range(iterations):
@@ -163,7 +155,7 @@ def SigSeekr(targets, sigtarget, nontargets, nontargetdir, evalue, estop, minlen
                 global result
                 result = True
                 evalue = 10 ** e  # Increment evalue
-                blastnthreads(targetname, targetnameext, nontargets, unique, nontargetdir, evalue, word)  # BLASTn
+                blastnthreads(targetname, targetnameext, nontargets, unique, evalue, word)  # BLASTn
                 sys.stdout.write('[%s] ' % (time.strftime("%H:%M:%S")))
                 if result is not None:
                     print 'Found Sequence(s) at E-value: ' + str(evalue)
@@ -178,16 +170,16 @@ def SigSeekr(targets, sigtarget, nontargets, nontargetdir, evalue, estop, minlen
         uniquecount = 0
         targetdict = SeqIO.to_dict(SeqIO.parse(target, 'fasta'))
         handle = open(uniquename, 'w')
-        for id in recorddict:
+        for idline in recorddict:
             pattern = r'([^N]{' + re.escape(str(minLength)) + r',})|([ATCG]{30,}N{' \
                       + re.escape(str(minLength)) + r',900}[ATCG]{30,})'
              #  Find a sequence of at least the target length
             regex = re.compile(pattern)
-            uniseq = regex.finditer(recorddict[id].seq.tostring())
+            uniseq = regex.finditer(recorddict[idline].seq.tostring())
             for coor in uniseq:
                 uniquecount += 1
-                sequence = targetdict[id].seq[coor.start():coor.end()].tostring()
-                handle.write('>usid%04i_%s_%s\n' % (uniquecount, targetname, id))
+                sequence = targetdict[idline].seq[coor.start():coor.end()].tostring()
+                handle.write('>usid%04i_%s_%s\n' % (uniquecount, targetname, idline))
                 handle.write(sequence + '\n')
         music.load('/run/media/blais/blastdrive/death.wav')
         print 'Writing %i sequence(s) to file' % uniquecount
