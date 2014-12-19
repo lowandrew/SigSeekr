@@ -1,14 +1,20 @@
-from Bio.Blast.Applications import NcbiblastnCommandline
-from Bio import SearchIO, SeqIO
-import cStringIO, time, glob, re, shutil
+# from Bio.Blast.Applications import NcbiblastnCommandline
+# from Bio import SearchIO, SeqIO
+# import cStringIO, time, glob, re, shutil
 
+cmd = 'blastn -outfmt 5 -query /nas/Pipeline_development/USS_Ppip/test/testing/OLC811.fa -db /nas/Pipeline_development/rMLST/BACT000015 -evalue 1e-40 -perc_identity 100'
 
-genome = '/nas/Pipeline_development/Typing/Genomes/'
-for file in glob.glob(genome + "*'*.f*a"):
-    newname = re.sub('\'', "", file)
-    shutil.move(file, newname)
-    print file
-    print newname
+genome = '/nas/Pipeline_development/USS_Ppip/test/testing/OLC811.fa'
+db = '/nas/Pipeline_development/rMLST/BACT000015'
+perc = 100
+blastn = NcbiblastnCommandline(query=genome, db=db, evalue=1e-40, outfmt=5, perc_identity=perc)
+
+# genome = '/nas/Pipeline_development/Typing/Genomes/'
+# for file in glob.glob(genome + "*'*.f*a"):
+#     newname = re.sub('\'', "", file)
+#     shutil.move(file, newname)
+#     print file
+#     print newname
 
 # fasta = '/nas/Pipeline_development/rMLST/BACT000001.fas'
 # blastn = NcbiblastnCommandline(query=genome,
@@ -43,3 +49,9 @@ for file in glob.glob(genome + "*'*.f*a"):
 #         SeqIO.write(recorddict[id], output_handle, "fasta")
 # end = time.time() - start
 # print "Elapsed time %s" % end
+
+import re
+p = re.compile("[a-z]")
+for m in p.finditer('a1b2c3d4'):
+    print m.start(), m.group(), m.end(), 'a1b2c3d4'[m.start():m.end()]
+

@@ -4,7 +4,9 @@ Strain-specific probe idenification through:
 BLASTing at different e-values
 Masking of the resultant
 """
-import time, Queue, threading, GeneSeekr, cStringIO, os, shutil, re, sys
+import time, Queue, threading, cStringIO, os, re, sys
+from GeneSeekr import makedbthreads
+from shutil import copy
 from Bio.Blast.Applications import NcbiblastnCommandline
 from Bio import SearchIO, SeqIO
 from copy import deepcopy
@@ -39,7 +41,8 @@ def blastparse(stdout, output, tname, ntname):
                                                         'N' * (begin - finish + 1) + recorddict[hsp.query_id].seq[begin:]
         recorddict_bak = deepcopy(recorddict)  # Copy the dictionary so we may iterate and modify the result
         for id in recorddict_bak:
-            pattern = r'[^N]{'+ re.escape(str(minLength))+r'}' #  Find a sequence of at least the target length
+            # pattern = r'[^N]{'+ re.escape(str(minLength))+r'}' #  Find a sequence of at least the target length
+            pattern = r'[ATCG]{30,}N{200,900}[ATCG]{30,}|[^N]{'+ re.escape(str(minLength))+r'}'
             if re.match(pattern, str(recorddict[id].seq)) is not None:
                 SeqIO.write(recorddict[id], handle, "fasta")
             else:
@@ -47,6 +50,9 @@ def blastparse(stdout, output, tname, ntname):
                 recorddict.pop(id)
     except ValueError:
         print 'Value Error: There was an error removing %s genome from %s' % (ntname, tname)
+import pygame
+pygame.init()
+from pygame.mixer import music
 
 class runblast(threading.Thread):
     def __init__(self, blastqueue):
@@ -62,101 +68,129 @@ class runblast(threading.Thread):
                                                db=nontarget,
                                                evalue=evalue,
                                                outfmt=6,
-                                               perc_identity=96,
-                                               word_size=word)
+                                               perc_identity=90,
+                                               word_size=11,
+                                               ungapped=True,
+                                               penalty=-6)
                 stdout, stderr = blastn()
                 sys.stdout.write('[%s] [%s/%s] ' % (time.strftime("%H:%M:%S"), count, t))
                 if not stdout:
-                    print colored("%s has no significant similarity to %s with an elimination E-value: %s" \
-                          % (tname, ntname, str(evalue)), 'red')
+                    print colored("%s has no significant similarity to \"%s\" with an elimination E-value: %g" \
+                          % (tname, ntname, evalue), 'red')
+
                 else:
-                    print colored("Now eliminating %s sequences with significant similarity to %s with an "
-                                  "elimination E-value: %s" % (tname, ntname, str(evalue)), 'green', attrs=['blink'])
+                    music.load('/run/media/blais/blastdrive/coin.wav')
+                    music.play()
+                    print colored("Now eliminating %s sequences with significant similarity to \"%s\" with an "
+                                  "elimination E-value: %g" % (tname, ntname, evalue), 'blue', attrs=['blink'])
                     blastparse(stdout, target, tname, ntname)
             else:
                 global result
-                result = False
+                result = None
             threadlock.release()
             self.blastqueue.task_done()
 
 
-def blastnthreads(target, targets, targetdir, nontargetdir, evalue, word):
+def blastnthreads(target, targetnameext, nontargets, targetdir, nontargetdir, evalue, word):
     """Setup and create  threads for blastn and passthrough"""
-    targetPath = targetdir + target + ".fa"
-    for i in range(len(target)):
-        threads = runblast(blastqueue)
-        threads.setDaemon(True)
-        threads.start()
+    targetPath = targetdir + targetnameext
+    t = len(nontargets)
+    # for i in range(t):
+    #     threads = runblast(blastqueue)
+    #     threads.setDaemon(True)
+    #     threads.start()
     count = 0
     if os.path.getsize(targetPath) != 0:
-        t = len(targets[target])
-        for nontarget in sorted(targets[target]):
-            nontargetPath = nontargetdir + nontarget + ".fa"
+        # t = len(targets[target])
+        for nontarget in sorted(nontargets, key=len, reverse=True):
+            # nontargets = nontargetdir + nontarget + ".fa"
+            ntname = nontarget.split('/')[-1].split('.')[0].replace('_', ' ')
             count += 1
-            blastqueue.put((targetPath, nontargetPath, target, nontarget, evalue, word, t, count))
+            nontargetdb = nontarget.split('.')[0]
+            if target != ntname:
+                blastqueue.put((targetPath, nontargetdb, target, ntname, evalue, word, t, count))
     else:
-        return False
+        return None
     blastqueue.join()
 
-def restart(target, targetdir, unique):
+def restart(target, unique):
     '''
     Write the target fasta file to memory as a dictionary and replace the old target file for iterative purposes
     '''
     global recorddict
     recorddict = {}
-    shutil.copy(targetdir + target + '.fa', unique)
-    handle = open(targetdir + target + '.fa', unique)
+    copy(target, unique)
+    # shutil.copy(targetdir + target + '.fa', unique)
+    handle = open(target)
     recorddict = SeqIO.to_dict(SeqIO.parse(handle, 'fasta'))
     handle.close()
 
 
-def ssPCR(targets, targetdir, nontargetdir, evalue, estop, minlength, iterations):
+def SigSeekr(targets, sigtarget, nontargets, nontargetdir, evalue, estop, minlength, iterations):
     '''
     Targets and nontargets are imported as a list
     '''
     # TODO reassociate path with targets and nontargets and test if files exist
     global minLength
     minLength = minlength
-    nontargetPath = []
-    unique = targetdir + "../Unique/"
+    # nontargets = []
+    unique = nontargetdir + "../Unique/"
     if not os.path.exists(unique):
         os.mkdir(unique)
-    for target in sorted(targets):
-        restart(target, targetdir, unique)
-        for nontarget in targets[target]:
-            if nontarget not in nontargetPath:
-                nontargetPath.append(nontargetdir + nontarget + '.fa')
-    GeneSeekr.makedbthreads(nontargetPath)
-    print "[%s] There are %s target genomes and %s non-target genomes" % (time.strftime("%H:%M:%S"), len(targets), len(nontargetPath))
+    # restart(sigtarget, unique)
+    # for nontarget in nontargets:
+    #     if nontarget not in nontargets:
+    #         nontargets.append(nontarget + '.fa')
+    makedbthreads(nontargets)
+    print "[%s] There are %s target genomes and %s non-target genomes" % (time.strftime("%H:%M:%S"), len(targets), len(nontargets))
+    counter = 0
     for target in targets:
-        print "[%s] Now parsing %s" % (time.strftime("%H:%M:%S"), target)
+        restart(target, unique)
+        targetnameext = target.split('/')[-1]
+        targetname = targetnameext.split('.')[0]
+        counter += 1
+        print "[%s] Now parsing target #%i: %s" % (time.strftime("%H:%M:%S"), counter, targetname)
+        for i in range(len(nontargets)):
+            threads = runblast(blastqueue)
+            threads.setDaemon(True)
+            threads.start()
         for inc in range(iterations):
             print "Iteration " + str(inc + 1)
             if inc > len(wordsize):
                 inc = -1
             word = wordsize[inc]
             for e in range(int(log10(evalue)), int(log10(estop)), -1):
-                evalue = 10 ** e  # Increment evalue
-                blastnthreads(target, targets, unique, nontargetdir, evalue, word)  # BLASTn
-                sys.stdout.write('[%s] ' % (time.strftime("%H:%M:%S")))
                 global result
-                if result:
+                result = True
+                evalue = 10 ** e  # Increment evalue
+                blastnthreads(targetname, targetnameext, nontargets, unique, nontargetdir, evalue, word)  # BLASTn
+                sys.stdout.write('[%s] ' % (time.strftime("%H:%M:%S")))
+                if result is not None:
                     print 'Found Sequence(s) at E-value: ' + str(evalue)
                     break
                 else:
                     print 'Query file is empty'
-                    restart(target, targetdir, unique)
+                    music.load('/run/media/blais/blastdrive/1up.wav')
+                    music.play()
+                    restart(target, unique)
                     inc = 0
-        uniquename = unique + target + '.unique.fasta'
+        uniquename = unique + targetname + '.unique.fasta'
         uniquecount = 0
+        targetdict = SeqIO.to_dict(SeqIO.parse(target, 'fasta'))
         handle = open(uniquename, 'w')
         for id in recorddict:
-            pattern = r'([^N]{' + re.escape(str(minLength)) + r',})' #  Find a sequence of at least the target length
+            pattern = r'([^N]{' + re.escape(str(minLength)) + r',})|([ATCG]{30,}N{' \
+                      + re.escape(str(minLength)) + r',900}[ATCG]{30,})'
+             #  Find a sequence of at least the target length
             regex = re.compile(pattern)
-            uniseq = regex.findall(str(recorddict[id].seq))
-            for sequence in uniseq:
+            uniseq = regex.finditer(recorddict[id].seq.tostring())
+            for coor in uniseq:
                 uniquecount += 1
-                handle.write('>usid%s_%s_%s\n' % (str(uniquecount).zfill(4), target, id))
+                sequence = targetdict[id].seq[coor.start():coor.end()].tostring()
+                handle.write('>usid%04i_%s_%s\n' % (uniquecount, targetname, id))
                 handle.write(sequence + '\n')
-        print 'Writing %s sequence(s) to file' % str(uniquecount)
+        music.load('/run/media/blais/blastdrive/death.wav')
+        print 'Writing %i sequence(s) to file' % uniquecount
+        music.play()
+        time.sleep(4)
         handle.close()

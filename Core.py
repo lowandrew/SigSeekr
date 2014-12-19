@@ -8,14 +8,16 @@ then to prepare the data for strain-specific probe idenification
 from argparse import ArgumentParser
 from copy import deepcopy
 from collections import defaultdict
-import os, glob, GeneSeekr, shutil, json, USSPpip
+from glob import glob
+from USSPpip import SigSeekr
+import os, GeneSeekr, shutil, json, USSPpip
 
 def retriever(genomes, output):
     if not os.path.exists(output + "Genomes"):
         os.mkdir(output + "Genomes")
-    for folders in glob.glob(genomes + "/*"):
+    for folders in glob(genomes + "/*"): 
         if os.path.exists(folders + "/Best_Assemblies"):
-            for fasta in glob.glob(folders + "/Best_Assemblies/*"):
+            for fasta in glob(folders + "/Best_Assemblies/*"):
                 shutil.copy(fasta, output + "Genomes")
 
 def jsonUpGoer(jsonfile, markers, genomes, outdir, method):
@@ -23,7 +25,9 @@ def jsonUpGoer(jsonfile, markers, genomes, outdir, method):
         genedict = json.load(open(jsonfile))
     else:
         genedict = GeneSeekr.blaster(markers, genomes, outdir, "USSpip_" + method)
-        json.dump(genedict, open(jsonfile, 'w'), sort_keys=True, indent=4, separators=(',', ': '))
+        handle = open(jsonfile, 'w')
+        json.dump(genedict, handle, sort_keys=True, indent=4, separators=(',', ': '))
+        handle.close()
     return genedict
 
 def compareType(TargetrMLST, nonTargetrMLST):
@@ -48,20 +52,21 @@ def compareType(TargetrMLST, nonTargetrMLST):
     for genome in typing_bak:
         for nontarget in typing_bak[genome]:
             #  TODO: add variable for allelic cutoff
-            if not 30 < typing[genome][nontarget] < 51:
-                # Actual number of alleles: 53 ... I hate you Keith
+            if not 30 < typing[genome][nontarget] < 53:
+                # Actual number of alleles: 53
                 removed[genome][nontarget] = typing[genome].pop(nontarget)
     return typing, removed
 
 def sorter(markers, genomes, outdir, target, evalue, estop):
     '''Strip first allele off each locus to feed into geneseekr and return dictionary
     '''
-    if not os.path.exists(outdir + "Genomes/"):
-        retriever(genomes, outdir)
+    # if not os.path.exists(outdir + "Genomes/"):
+    #     retriever(genomes, outdir)
     if not os.path.exists(outdir + "tmp/"):
         os.mkdir(outdir + "tmp/")
-    genomes = outdir + "Genomes/"
-    jsonfile = '%sgenedict.json' %  outdir
+    # genomes = outdir + "Genomes/"
+    nontargets = glob(genomes + "*.fa*")
+    jsonfile = '%sgenedict.json' % outdir
     nonTargetrMLST = jsonUpGoer(jsonfile, markers, genomes, outdir, 'nontarget')
     if os.path.exists(target):  # Determine if target is a folder
         targetjson = '%stargetdict.json' % outdir
@@ -72,7 +77,9 @@ def sorter(markers, genomes, outdir, target, evalue, estop):
     typing, removed = compareType(TargetrMLST, nonTargetrMLST)
     json.dump(typing, open(outdir + 'typing.json', 'w'), sort_keys=True, indent=4, separators=(',', ': '))
     json.dump(removed, open(outdir + 'removed.json', 'w'), sort_keys=True, indent=4, separators=(',', ': '))
-    USSPpip.ssPCR(typing, genomes, genomes, evalue, estop, 200, 2)
+    # evalue = 1e-67
+    for sigtarget in typing:
+        SigSeekr(typing, sigtarget, typing[sigtarget], genomes, evalue, estop, 200, 1)
 
 
 #Parser for arguments
