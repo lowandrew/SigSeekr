@@ -28,7 +28,7 @@ def dotter():
 def makeblastdb(dqueue):
     while True:  # while daemon
         fastapath = dqueue.get() # grabs fastapath from dqueue
-        db = fastapath.split('.')[0]  # remove the file extension for easier future globing
+        db = fastapath[0].split('.')[0]  # remove the file extension for easier future globing
         nhr = "%s.nhr" % db  # add nhr for searching
         FNULL = open(os.devnull, 'w')  # define /dev/null
         if not os.path.isfile(str(nhr)):  # if check for already existing dbs
@@ -77,22 +77,23 @@ def blastparse(blast_handle, genome, gene):
         for alignment in record.alignments:
             for hsp in alignment.hsps:
                 threadlock.acquire()  # precaution
-                if hsp.identities == alignment.length:  # if the length of the match matches the legth of the sequence
-                    if genome not in plusdict:  # add genomes in plusdict
-                        plusdict[genome] = defaultdict(str)
-                    if gene not in plusdict[genome]:  # add genes to plus dict
-                        plusdict[genome][gene] = 0
-                    if plusdict[genome][gene] == 0 and hsp.identities == alignment.length:
-                        # If there is only one good match then apply allele number
-                        plusdict[genome][gene] = alignment.title.split('_')[-1]
-                    elif hsp.identities == alignment.length:
-                        # If there is multiple matches then added them in a string
-                        plusdict[genome][gene] += ' ' + alignment.title.split('_')[-1]
-                    else:
-                        # or add the
-                        plusdict[genome][gene] = '%s (%s/%s)' % (alignment.title.split('_')[-1],
-                                                                 hsp.identities,
-                                                                 alignment.length)
+                # if hsp.identities == alignment.length:  # if the length of the match matches the legth of the sequence
+                #     # if genome not in plusdict:  # add genomes in plusdict
+                #     #     plusdict[genome] = defaultdict(list)
+                #     # if gene not in plusdict[genome]:  # add genes to plus dict
+                #     #     plusdict[genome][gene] = []
+                if plusdict[genome][gene] == [] and hsp.identities == alignment.length:
+                    # If there is only one good match then apply allele number
+                    plusdict[genome][gene].append(alignment.title.split('_')[-1])
+                elif hsp.identities == alignment.length:
+                    # If there is multiple matches then added them in a string
+                    plusdict[genome][gene].append(alignment.title.split('_')[-1])
+                    plusdict[genome][gene].sort()
+                else:
+                    # or add the
+                    plusdict[genome][gene].append('%s (%s/%s)' % (alignment.title.split('_')[-1],
+                                                                  hsp.identities,
+                                                                  alignment.length))
 
                 threadlock.release()  # precaution for populate dictionary with GIL
 
@@ -110,9 +111,10 @@ class runblast(threading.Thread):
             threadlock.acquire()
             blastpath.append((out, path.group(3), gene, genename,))  # tuple-list
             try:
-                plusdict[genome][genename] = 0
+                plusdict[genome][genename] = []
             except KeyError:
-                plusdict[genome] = {genename: 0}
+                plusdict[genome] = defaultdict(list)
+                plusdict[genome][genename] = []
             threadlock.release()
             if not os.path.isfile(out):
                 dotter()
@@ -199,7 +201,7 @@ def blaster(markers, strains, out, name):
         parthreads.start()
     #retrieve genomes from input
     if os.path.isdir(strains):
-        genomes = glob.glob(strains + "*.f*a")
+        genomes = glob.glob(strains + "*.f*")
         print '[%s] GeneSeekr input is path with %s genomes' % (time.strftime("%H:%M:%S"), len(genomes))
     elif os.path.isfile(strains):
         genomes = [strains,]
@@ -232,11 +234,16 @@ def blaster(markers, strains, out, name):
     for genomerow in plusdict:
         row += "\n" + genomerow.split('/')[-1].split('.')[0]
         rowcount += 1
+
         for generow in sorted(genes):
+            genename = generow[-14:-4]
             if rowcount <= 1:
-                csvheader += ', ' + generow[-14:-4]
-            if generow[-14:-4] in plusdict[genomerow]:
-                row += ',' + str(plusdict[genomerow][generow[-14:-4]])
+                csvheader += ', ' + genename
+            if genename in plusdict[genomerow]:
+                alleleNum = ""
+                for allele in plusdict[genomerow][genename]:
+                    alleleNum += str(allele) + ' '
+                row += ',' + alleleNum
             else:
                 row += ',N'
     with open("%s%s_results_%s.csv" % (out, name, time.strftime("%Y.%m.%d.%H.%M.%S")), 'wb') as csvfile:

@@ -37,24 +37,33 @@ def compareType(TargetrMLST, nonTargetrMLST):
     Requires target and non-target dictionaries as inputs
     '''
     typing = defaultdict(dict)
-    removed = defaultdict(dict)
-    for genome in TargetrMLST:
-        if genome not in typing:
+    removed = defaultdict(list)
+    for genome in TargetrMLST:  # genome refers to target genome
+        if genome not in typing:  # add the target genome to the dictionary
             typing[genome] = defaultdict(int)
-        for gene in sorted(TargetrMLST[genome]):
-            for nontarget in nonTargetrMLST:
+        for gene in sorted(TargetrMLST[genome]):  # gene is the rST
+            for nontarget in nonTargetrMLST:  # check against this genome
                 if nontarget not in typing[genome]:  # if nontarget genome not in typing dictionary then add it
                     typing[genome][nontarget] = 0
-                if gene in TargetrMLST[genome] and gene in nonTargetrMLST[nontarget]:
-                    if TargetrMLST[genome][gene] == nonTargetrMLST[nontarget][gene]:
+                if gene in TargetrMLST[genome] and gene in nonTargetrMLST[nontarget]:  #
+                    match = 0
+                    for allele in TargetrMLST[genome][gene]: # multiple allele types possibly present
+                        if allele in nonTargetrMLST[nontarget][gene]:
+                            match += 1
+                    if match == len(nonTargetrMLST[nontarget][gene]):
                         typing[genome][nontarget] += 1
     typing_bak = deepcopy(typing)
+    typing = defaultdict(list)
     for genome in typing_bak:
-        for nontarget in typing_bak[genome]:
-            #  TODO: add variable for allelic cutoff
-            if not 30 < typing[genome][nontarget] < 53:
+        for nontarget, value in sorted(typing_bak[genome].iteritems(), key=lambda (k, v): (v, k), reverse=True):
+        # sort dictionary by alleles in common
+            if 0 < value < 53:
+                if genome not in typing:
+                    typing[genome] = []
                 # Actual number of alleles: 53
-                removed[genome][nontarget] = typing[genome].pop(nontarget)
+                typing[genome].append((nontarget, value))
+            else:
+                removed[genome].append((nontarget, value))
     return typing, removed
 
 def sorter(markers, genomes, outdir, target, evalue, estop):
@@ -75,11 +84,10 @@ def sorter(markers, genomes, outdir, target, evalue, estop):
         return
     TargetrMLST = jsonUpGoer(targetjson, markers, target, outdir, 'target')
     typing, removed = compareType(TargetrMLST, nonTargetrMLST)
-    json.dump(typing, open(outdir + 'typing.json', 'w'), sort_keys=True, indent=4, separators=(',', ': '))
-    json.dump(removed, open(outdir + 'removed.json', 'w'), sort_keys=True, indent=4, separators=(',', ': '))
-    # evalue = 1e-67
+    json.dump(typing, open(outdir + 'typing.json', 'w'), sort_keys=False, indent=4, separators=(',', ': '))
+    json.dump(removed, open(outdir + 'removed.json', 'w'), sort_keys=False, indent=4, separators=(',', ': '))
     for sigtarget in typing:
-        SigSeekr(typing, sigtarget, typing[sigtarget], genomes, evalue, estop, 200, 1)
+        SigSeekr(typing, typing[sigtarget], genomes, evalue, estop, 200, 1)
 
 
 #Parser for arguments
@@ -89,7 +97,7 @@ parser.add_argument('-o', '--output', required=True, help='Specify output direct
 parser.add_argument('-i', '--input', required=True, help='Specify input genome fasta folder')
 parser.add_argument('-m', '--marker', required=True, help='Specify rMLST folder')
 parser.add_argument('-t', '--target', required=True, help='Specify target genome or folder')
-parser.add_argument('-e', '--evalue', default=1e-40, help='Specify elimination E-value lower limit (default 1e-40)')
+parser.add_argument('-e', '--evalue', default=1e-53, help='Specify elimination E-value lower limit (default 1e-50)')
 parser.add_argument('-s', '--estop', default=1e-90, help='Specify the upper E-value limit (default 1e-90)')
 # parser.add_argument('-t', '--target', required=True, help='Specify target genome or folder')
 args = vars(parser.parse_args())

@@ -22,7 +22,6 @@ minLength = 200
 
 
 def blastparse(stdout, output, tname, ntname):
-    # TODO: ADD minLength variable
     global recorddict, minLength
     handle = open(output, 'w')  # open the target fasta file for writing
     blast_handle = cStringIO.StringIO(stdout)  # Convert string to IO object for use in SearchIO using StringIO
@@ -45,7 +44,7 @@ def blastparse(stdout, output, tname, ntname):
         recorddict_bak = deepcopy(recorddict)  # Copy the dictionary so we may iterate and modify the result
         for idline in recorddict_bak:
             # pattern = r'[^N]{'+ re.escape(str(minLength))+r'}' #  Find a sequence of at least the target length
-            pattern = r'[ATCG]{30,}N{200,900}[ATCG]{30,}|[^N]{' + re.escape(str(minLength))+r'}'
+            pattern = r'[ATCG]{100,}N{200,900}[ATCG]{100,}|[^N]{' + re.escape(str(minLength))+r'}'
             if re.match(pattern, str(recorddict[idline].seq)) is not None:
                 SeqIO.write(recorddict[idline], handle, "fasta")
             else:
@@ -65,7 +64,7 @@ class RunBlast(threading.Thread):
 
     def run(self):
         while True:
-            target, nontarget, tname, ntname, evalue, word, t, count = self.blastqueue.get()
+            target, nontarget, tname, ntname, evalue, word, t, count, allele = self.blastqueue.get()
             threadlock.acquire()
             if os.path.getsize(target) != 0:
                 # BLASTn parameters
@@ -73,21 +72,23 @@ class RunBlast(threading.Thread):
                                                db=nontarget,
                                                evalue=evalue,
                                                outfmt=6,
-                                               perc_identity=90,
-                                               word_size=11,
-                                               ungapped=True,
-                                               penalty=-6)
+                                               perc_identity=85,
+                                               word_size=word,
+                                               # ungapped=True,
+                                               # penalty=-20,
+                                               # reward=1,
+                                               )
                 stdout, stderr = blastn()
                 sys.stdout.write('[%s] [%s/%s] ' % (time.strftime("%H:%M:%S"), count, t))
                 if not stdout:
-                    print colored("%s has no significant similarity to \"%s\" with an elimination E-value: %g"
-                                  % (tname, ntname, evalue), 'red')
+                    print colored("%s has no significant similarity to \"%s\"(%i) with an elimination E-value: %g"
+                                  % (tname, ntname, allele, evalue), 'red')
 
                 else:
                     music.load('/run/media/blais/blastdrive/coin.wav')
                     music.play()
-                    print colored("Now eliminating %s sequences with significant similarity to \"%s\" with an "
-                                  "elimination E-value: %g" % (tname, ntname, evalue), 'blue', attrs=['blink'])
+                    print colored("Now eliminating %s sequences with significant similarity to \"%s\"(%i) with an "
+                                  "elimination E-value: %g" % (tname, ntname, allele, evalue), 'blue', attrs=['blink'])
                     blastparse(stdout, target, tname, ntname)
             else:
                 global result
@@ -102,12 +103,12 @@ def blastnthreads(target, targetnameext, nontargets, targetdir, evalue, word):
     t = len(nontargets)
     count = 0
     if os.path.getsize(targetpath) != 0:
-        for nontarget in sorted(nontargets, key=len, reverse=True):
-            ntname = nontarget.split('/')[-1].split('.')[0].replace('_', ' ')
+        for nontarget in nontargets:
+            ntname = nontarget[0].split('/')[-1].split('.')[0].replace('_', ' ')
             count += 1
-            nontargetdb = nontarget.split('.')[0]
+            nontargetdb = nontarget[0].split('.')[0]
             if target != ntname:
-                blastqueue.put((targetpath, nontargetdb, target, ntname, evalue, word, t, count))
+                blastqueue.put((targetpath, nontargetdb, target, ntname, evalue, word, t, count, nontarget[1]))
     else:
         return None
     blastqueue.join()
@@ -123,6 +124,30 @@ def restart(target, unique):
     recorddict = SeqIO.to_dict(SeqIO.parse(handle, 'fasta'))
     handle.close()
 
+def SigWritter(uniquename, target, uniquecount, targetname, evalue):
+    targetdict = SeqIO.to_dict(SeqIO.parse(target, 'fasta'))
+    copy(target, uniquename + '.' + str(uniquecount))
+    handle = open(uniquename, 'a+')
+    for idline in recorddict:
+        pattern = r'([^N]{' + re.escape(str(minLength)) + r',})|([ATCG]{50,}N{' \
+                  + re.escape(str(minLength)) + r',900}[ATCG]{50,})'
+         #  Find a sequence of at least the target length
+        regex = re.compile(pattern)
+        uniseq = regex.finditer(recorddict[idline].seq.tostring())
+        for coor in uniseq:
+            isunique = True
+            uniquecount += 1
+            sequence = targetdict[idline].seq[coor.start():coor.end()].tostring()
+            for line in handle:
+                if sequence in line:
+                    isunique = False
+            if isunique is True:
+                print 'Found Sequence(s) at E-value: ' + str(evalue)
+                handle.write('>usid%04i_%g_%s_%s\n' % (uniquecount, evalue, targetname, idline))
+                handle.write(sequence + '\n')
+    print 'Writing %i sequence(s) to file' % uniquecount
+    handle.close()
+    return uniquecount
 
 def SigSeekr(targets, nontargets, nontargetdir, evalue, estop, minlength, iterations):
     """Targets and nontargets are imported as a list"""
@@ -142,6 +167,8 @@ def SigSeekr(targets, nontargets, nontargetdir, evalue, estop, minlength, iterat
         targetname = targetnameext.split('.')[0]
         counter += 1
         print "[%s] Now parsing target #%i: %s" % (time.strftime("%H:%M:%S"), counter, targetname)
+        uniquename = unique + targetname + '.unique.fasta'
+        uniquecount = 0
         for i in range(len(nontargets)):
             threads = RunBlast(blastqueue)
             threads.setDaemon(True)
@@ -158,31 +185,35 @@ def SigSeekr(targets, nontargets, nontargetdir, evalue, estop, minlength, iterat
                 blastnthreads(targetname, targetnameext, nontargets, unique, evalue, word)  # BLASTn
                 sys.stdout.write('[%s] ' % (time.strftime("%H:%M:%S")))
                 if result is not None:
-                    print 'Found Sequence(s) at E-value: ' + str(evalue)
-                    break
+                    uniquecount = SigWritter(uniquename, target, uniquecount, targetname, evalue)
                 else:
                     print 'Query file is empty'
                     music.load('/run/media/blais/blastdrive/1up.wav')
                     music.play()
                     restart(target, unique)
                     inc = 0
-        uniquename = unique + targetname + '.unique.fasta'
-        uniquecount = 0
-        targetdict = SeqIO.to_dict(SeqIO.parse(target, 'fasta'))
-        handle = open(uniquename, 'w')
-        for idline in recorddict:
-            pattern = r'([^N]{' + re.escape(str(minLength)) + r',})|([ATCG]{30,}N{' \
-                      + re.escape(str(minLength)) + r',900}[ATCG]{30,})'
-             #  Find a sequence of at least the target length
-            regex = re.compile(pattern)
-            uniseq = regex.finditer(recorddict[idline].seq.tostring())
-            for coor in uniseq:
-                uniquecount += 1
-                sequence = targetdict[idline].seq[coor.start():coor.end()].tostring()
-                handle.write('>usid%04i_%s_%s\n' % (uniquecount, targetname, idline))
-                handle.write(sequence + '\n')
-        music.load('/run/media/blais/blastdrive/death.wav')
-        print 'Writing %i sequence(s) to file' % uniquecount
+        global result
+        # if result is not None:
+        #     targetdict = SeqIO.to_dict(SeqIO.parse(target, 'fasta'))
+        #     handle = open(uniquename, 'w')
+        #     for idline in recorddict:
+        #         pattern = r'([^N]{' + re.escape(str(minLength)) + r',})|([ATCG]{50,}N{' \
+        #                   + re.escape(str(minLength)) + r',900}[ATCG]{50,})'
+        #          #  Find a sequence of at least the target length
+        #         regex = re.compile(pattern)
+        #         uniseq = regex.finditer(recorddict[idline].seq.tostring())
+        #         for coor in uniseq:
+        #             uniquecount += 1
+        #             sequence = targetdict[idline].seq[coor.start():coor.end()].tostring()
+        #             handle.write('>usid%04i_%s_%s\n' % (uniquecount, targetname, idline))
+        #             handle.write(sequence + '\n')
+        #     music.load('/run/media/blais/blastdrive/death.wav')
+        #     print 'Writing %i sequence(s) to file' % uniquecount
+        #     music.play()
+        #     time.sleep(4)
+        #     handle.close()
+        music.load('/run/media/blais/blastdrive/fail.mp3')
         music.play()
+        if result is None:
+           print "No signature sequences found :("
         time.sleep(4)
-        handle.close()
