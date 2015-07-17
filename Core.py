@@ -10,7 +10,7 @@ from copy import deepcopy
 from collections import defaultdict
 from glob import glob
 from USSPpip import SigSeekr
-import os, GeneSeekr, shutil, json, USSPpip
+import os, GeneSeekr, shutil, json
 
 def retriever(genomes, output):
     if not os.path.exists(output + "Genomes"):
@@ -30,33 +30,39 @@ def jsonUpGoer(jsonfile, markers, genomes, outdir, method):
         handle.close()
     return genedict
 
-def compareType(TargetrMLST, nonTargetrMLST):
-    '''
-    Compare the rMLST types by making sure that the alleles are exactly the same size
-    Record list of genomes not included in non-target selection
-    Requires target and non-target dictionaries as inputs
-    '''
+def alleledictbuild(TargetrMLST, nonTargetrMLST):
     typing = defaultdict(dict)
-    removed = defaultdict(list)
     for genome in TargetrMLST:  # genome refers to target genome
         if genome not in typing:  # add the target genome to the dictionary
             typing[genome] = defaultdict(int)
+
         for gene in sorted(TargetrMLST[genome]):  # gene is the rST
             for nontarget in nonTargetrMLST:  # check against this genome
                 if nontarget not in typing[genome]:  # if nontarget genome not in typing dictionary then add it
                     typing[genome][nontarget] = 0
                 if gene in TargetrMLST[genome] and gene in nonTargetrMLST[nontarget]:  #
                     match = 0
-                    for allele in TargetrMLST[genome][gene]: # multiple allele types possibly present
+                    for allele in TargetrMLST[genome][gene]:  # multiple allele types possibly present
                         if allele in nonTargetrMLST[nontarget][gene]:
                             match += 1
                     if match == len(nonTargetrMLST[nontarget][gene]):
                         typing[genome][nontarget] += 1
+    return typing
+
+def compareType(TargetrMLST, nonTargetrMLST):
+    '''
+    Compare the rMLST types by making sure that the alleles are exactly the same size
+    Record list of genomes not included in non-target selection
+    Requires target and non-target dictionaries as inputs
+    '''
+    removed = defaultdict(list)
+    # nontyping = alleledictbuild(nonTargetrMLST, nonTargetrMLST)
+    typing = alleledictbuild(TargetrMLST, nonTargetrMLST)
     typing_bak = deepcopy(typing)
     typing = defaultdict(list)
     for genome in typing_bak:
         for nontarget, value in sorted(typing_bak[genome].iteritems(), key=lambda (k, v): (v, k), reverse=True):
-        # sort dictionary by alleles in common
+        # sort dic*.fionary by alleles in common
             if 0 < value < 53:
                 if genome not in typing:
                     typing[genome] = []
@@ -87,7 +93,7 @@ def sorter(markers, genomes, outdir, target, evalue, estop):
     json.dump(typing, open(outdir + 'typing.json', 'w'), sort_keys=False, indent=4, separators=(',', ': '))
     json.dump(removed, open(outdir + 'removed.json', 'w'), sort_keys=False, indent=4, separators=(',', ': '))
     for sigtarget in typing:
-        SigSeekr(typing, typing[sigtarget], genomes, evalue, estop, 200, 1)
+        SigSeekr(typing, typing[sigtarget], outdir, evalue, float(estop), 200, 1)
 
 
 #Parser for arguments
@@ -97,8 +103,8 @@ parser.add_argument('-o', '--output', required=True, help='Specify output direct
 parser.add_argument('-i', '--input', required=True, help='Specify input genome fasta folder')
 parser.add_argument('-m', '--marker', required=True, help='Specify rMLST folder')
 parser.add_argument('-t', '--target', required=True, help='Specify target genome or folder')
-parser.add_argument('-e', '--evalue', default=1e-53, help='Specify elimination E-value lower limit (default 1e-50)')
-parser.add_argument('-s', '--estop', default=1e-90, help='Specify the upper E-value limit (default 1e-90)')
+parser.add_argument('-e', '--evalue', default=1e-1, help='Specify elimination E-value lower limit (default 1e-50)')
+parser.add_argument('-s', '--estop', default=1e-70, help='Specify the upper E-value limit (default 1e-90)')
 # parser.add_argument('-t', '--target', required=True, help='Specify target genome or folder')
 args = vars(parser.parse_args())
 

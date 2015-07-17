@@ -28,12 +28,11 @@ def dotter():
 def makeblastdb(dqueue):
     while True:  # while daemon
         fastapath = dqueue.get() # grabs fastapath from dqueue
-        db = fastapath[0].split('.')[0]  # remove the file extension for easier future globing
+        db = fastapath.split('.')[0]  # remove the file extension for easier future globing
         nhr = "%s.nhr" % db  # add nhr for searching
         FNULL = open(os.devnull, 'w')  # define /dev/null
         if not os.path.isfile(str(nhr)):  # if check for already existing dbs
-            subprocess.Popen(shlex.split("makeblastdb -in %s -dbtype nucl -out %s" % (fastapath, db)),
-                             stdout=FNULL, stderr=subprocess.STDOUT)
+            subprocess.Popen(shlex.split("makeblastdb -in %s -dbtype nucl -out %s" % (fastapath, db)))
             # make blastdb
             dotter()
         dqueue.task_done() # signals to dqueue job is done
@@ -119,15 +118,15 @@ class runblast(threading.Thread):
             if not os.path.isfile(out):
                 dotter()
                 file = open(out, 'w')
-                for perc in range(100, 99, -1):  # try to get allele type at varying ident
-                    db = fasta.split('.')[0]
-                    blastn = NcbiblastnCommandline(query=genome, db=db, evalue=1e-40, outfmt=5, perc_identity=perc)
-                    stdout, stderr = blastn()
-                    if stdout.find('Hsp') != -1:
-                        blast_handle = StringIO(stdout)  # Convert string to IO object for use in SearchIO using StringIO
-                        blastparse(blast_handle, genome, genename)  # parse the data already in memory
-                        file.write(stdout)  # write the result
-                        break
+                # for perc in range(100, 99, -1):  # try to get allele type at varying ident
+                db = fasta.split('.')[0]
+                blastn = NcbiblastnCommandline(query=genome, db=db, evalue=1e-40, outfmt=5, perc_identity=100)
+                stdout, stderr = blastn()
+                if stdout.find('Hsp') != -1:
+                    blast_handle = StringIO(stdout)  # Convert string to IO object for use in SearchIO using StringIO
+                    blastparse(blast_handle, genome, genename)  # parse the data already in memory
+                    file.write(stdout)  # write the result
+                        # break
                 file.close()
             elif os.path.getsize(out) != 0:  # if blast files already exist
                 handle = open(out)
