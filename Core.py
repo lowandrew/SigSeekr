@@ -10,7 +10,8 @@ from copy import deepcopy
 from collections import defaultdict
 from glob import glob
 from USSPpip import SigSeekr
-import os, GeneSeekr, shutil, json
+import os, shutil, json
+import GeneSeekrUper as GeneSeekr
 
 def retriever(genomes, output):
     if not os.path.exists(output + "Genomes"):
