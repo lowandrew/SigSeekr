@@ -259,10 +259,10 @@ class runblast(threading.Thread):
             # Add the appropriate variables to blast path
             blastpath.append((out, path[-1], gene, genename,))  # tuple-list
             try:
-                plusdict[genomename][genename] = {analysisType: 0}
+                plusdict[genome][genename] = {analysisType: 0}
             except KeyError:
-                plusdict[genomename] = {}
-                plusdict[genomename][genename] = {analysisType: 0}
+                plusdict[genome] = {}
+                plusdict[genome][genename] = {analysisType: 0}
             threadlock.release()
             # Checks to see if this BLAST search has previously been performed
             if not os.path.isfile(out):
