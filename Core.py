@@ -110,6 +110,6 @@ args = vars(parser.parse_args())
 
 sorter(os.path.join(os.path.abspath(args['marker']), ""),
        os.path.join(os.path.abspath(args['input']), ""),
-       os.path.join(os.path.abspath(args['output'])),
+       os.path.join(os.path.abspath(args['output']), ""),
        os.path.abspath(args['target']), args['evalue'],
        args['estop'])
