@@ -108,4 +108,8 @@ parser.add_argument('-s', '--estop', default=1e-70, help='Specify the upper E-va
 # parser.add_argument('-t', '--target', required=True, help='Specify target genome or folder')
 args = vars(parser.parse_args())
 
-sorter(os.path.join(args['marker'], ""), os.path.join(args['input'], ""), os.path.join(args['output']), args['target'], args['evalue'], args['estop'])
+sorter(os.path.join(os.path.abspath(args['marker']), ""),
+       os.path.join(os.path.abspath(args['input']), ""),
+       os.path.join(os.path.abspath(args['output'])),
+       os.path.abspath(args['target']), args['evalue'],
+       args['estop'])
