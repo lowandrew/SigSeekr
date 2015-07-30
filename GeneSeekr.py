@@ -152,6 +152,7 @@ class multiparser(threading.Thread): # Had to convert this to a class to integra
     def __init__(self, parsequeue):
         self.parsequeue = parsequeue
         threading.Thread.__init__(self)
+
     def run(self):
         while True:  # General Loop
             global plusdict, genedict  # Import global elements to populate, there may be a better way to do this

@@ -16,28 +16,28 @@ from glob import glob
 import subprocess, os, time, sys, shlex, re, threading, json, mmap, errno
 from argparse import ArgumentParser
 
-parser = ArgumentParser(description='Performs blast analyses to determine presence of custom targets')
-parser.add_argument('-p', '--path', required=False,
-                    default='/home/blais/PycharmProjects/pythonGeneSeekr/',
-                    help='Specify path for custom folder locations')
-parser.add_argument('-c', '--cutoff', required=False, default=0.8,
-                    help='The identity cutoff value for BLAST matches. Default is 0.8')
-parser.add_argument('-s', '--sequencePath', required=False,
-                    default='/home/blais/PycharmProjects/pythonGeneSeekr/sequences',
-                    help='The location of the query sequence files')
-parser.add_argument('-t', '--targetPath', required=False,
-                    default='/home/blais/PycharmProjects/pythonGeneSeekr/Organism',
-                    help='The location of the target files')
-
-# Get the arguments into a list
-args = vars(parser.parse_args())
+# parser = ArgumentParser(description='Performs blast analyses to determine presence of custom targets')
+# parser.add_argument('-p', '--path', required=False,
+#                     default='/home/blais/PycharmProjects/pythonGeneSeekr/',
+#                     help='Specify path for custom folder locations')
+# parser.add_argument('-c', '--cutoff', required=False, default=0.8,
+#                     help='The identity cutoff value for BLAST matches. Default is 0.8')
+# parser.add_argument('-s', '--sequencePath', required=False,
+#                     default='/home/blais/PycharmProjects/pythonGeneSeekr/sequences',
+#                     help='The location of the query sequence files')
+# parser.add_argument('-t', '--targetPath', required=False,
+#                     default='/home/blais/PycharmProjects/pythonGeneSeekr/Organism',
+#                     help='The location of the target files')
+#
+# # Get the arguments into a list
+# args = vars(parser.parse_args())
 
 # Define variables from the arguments - there may be a more streamlined way to do this
 # Add trailing slashes to the path variables to ensure consistent formatting (os.path.join)
-path = os.path.join(args['path'], "")
-cutoff = float(args['cutoff'])
-sequencePath = os.path.join(args['sequencePath'], "")
-targetPath = os.path.join(args['targetPath'], "")
+# path = os.path.join(args['path'], "")
+# cutoff = float(args['cutoff'])
+# sequencePath = os.path.join(args['sequencePath'], "")
+# targetPath = os.path.join(args['targetPath'], "")
 
 def make_path(inPath):
     """from: http://stackoverflow.com/questions/273192/check-if-a-directory-exists-and-create-it-if-necessary \
@@ -461,4 +461,4 @@ def blaster(path, cutoff, sequencePath, targetPath):
     return plusdict
 
 # Run the blaster function
-blaster(path, cutoff, sequencePath, targetPath)
+# blaster(path, cutoff, sequencePath, targetPath)
