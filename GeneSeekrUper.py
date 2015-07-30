@@ -304,11 +304,10 @@ def blaster(path, cutoff, sequencePath, targetPath, name):
     queryGenes, qualityGenes, organismName = organismChooser(path, targetPath, name)
     # Get the genome files into a list - note that they must be in the "sequences" subfolder of the path,
     # and the must have a file extension beginning with ".fa"
-    strains = glob("%s*.fa*" % sequencePath)
     if os.path.isdir(sequencePath):
         strains = glob("%s*.fa*" % sequencePath)
         print '[%s] GeneSeekr input is path with %s genomes' % (time.strftime("%H:%M:%S"), len(strains))
-    elif os.path.isfile(strains):
+    elif os.path.isfile(sequencePath):
         strains = [sequencePath,]
         singlestrain = os.path.split(sequencePath)[1]
         print 'GeneSeeker input is a single file \n%s' % singlestrain
@@ -343,7 +342,7 @@ def blaster(path, cutoff, sequencePath, targetPath, name):
     types["query"] = queryGenes
     if qualityGenes:
         types["quality"] = qualityGenes
-    csvheader = ''
+    # csvheader = ''
     # Loop through the analysis types, and make outputs as required
     # for analysisType in types:
     #     # Initialise variables
