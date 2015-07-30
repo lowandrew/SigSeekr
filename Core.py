@@ -25,7 +25,8 @@ def jsonUpGoer(jsonfile, markers, genomes, outdir, method):
     if os.path.isfile(jsonfile):
         genedict = json.load(open(jsonfile))
     else:
-        genedict = GeneSeekr.blaster(markers, genomes, outdir, "USSpip_" + method)
+        genedict = GeneSeekr.blaster(outdir, 100, genomes, markers, "USSpip_" + method)
+        # genedict = GeneSeekr.blaster(markers, genomes, outdir, "USSpip_" + method)
         handle = open(jsonfile, 'w')
         json.dump(genedict, handle, sort_keys=True, indent=4, separators=(',', ': '))
         handle.close()

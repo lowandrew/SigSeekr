@@ -328,7 +328,7 @@ class multiparser(threading.Thread): # Had to convert this to a class to integra
             self.parsequeue.task_done()
 
 
-def organismChooser(path,targetPath):
+def organismChooser(path,targetPath, name):
     """Allows the user to choose which organism to be used in the analyses"""
     # Initialise a count variable to be used in extracting the desired entry from a list of organisms
     count = 0
@@ -342,7 +342,7 @@ def organismChooser(path,targetPath):
         # There are likely not going to be qualityGenes included in a custom analysis
         qualityGenes = []
         # Organism name is simply the name of the folder containing the targets
-        organismName = targetPath.split("/")[-2]
+        organismName = name
     else:
         # Get a list of the organisms in the (default) Organism subfolder
         orgList = glob("%sOrganism/*" % path)
@@ -364,7 +364,7 @@ def organismChooser(path,targetPath):
     return queryGenes, qualityGenes, organismName
 
 
-def blaster(path, cutoff, sequencePath, targetPath):
+def blaster(path, cutoff, sequencePath, targetPath, name):
     """
     The blaster function is the stack manager of the module
     markers are the the target fasta folder that with be db'd and BLAST'd against strains folder
@@ -381,7 +381,7 @@ def blaster(path, cutoff, sequencePath, targetPath):
     blastpath = []
     # Run organism chooser to allow the user to choose which databases to use
     # returns the organism name, and lists of
-    queryGenes, qualityGenes, organismName = organismChooser(path, targetPath)
+    queryGenes, qualityGenes, organismName = organismChooser(path, targetPath, name)
     # Get the genome files into a list - note that they must be in the "sequences" subfolder of the path,
     # and the must have a file extension beginning with ".fa"
     strains = glob("%s*.fa*" % sequencePath)
