@@ -162,86 +162,6 @@ def blastparse(blast_handle, genome, gene):
                 threadlock.release()  # precaution for populate dictionary with GIL
 
 
-# def blastparse(blast_handle, genome, gene, analysisType, cutoff):
-#     """Parses BLAST results, and populates a dictionary with the results"""
-#     global plusdict
-#     records = NCBIXML.parse(blast_handle)   # Open record from memory-mapped file
-#     dotter()
-#     incomplete = []
-#     genomeName = os.path.basename(genome).split('.')[0]
-#     for record in records:  # This process is just to retrieve HSPs from xml files
-#         for alignment in record.alignments:
-#             for hsp in alignment.hsps:
-#                 threadlock.acquire()  # precaution
-#                 # Calculate the percent identity
-#                 percentIdentity = "%.2f" % float(float(hsp.identities) / float(alignment.length) * 100)
-#                 # If the results are greater than the cutoff value, add them to the dictionary
-#                 if hsp.identities >= alignment.length * cutoff:
-#                     plusdict[genomeName][gene][analysisType] = percentIdentity
-#                     threadlock.release()
-#                     # Exit the loop - I added this as else statement was adding
-#                     # partial matches to the "good" matches found above
-#                     break
-#                 else:
-#                     # Make sure that the gene is not already in the dictionary -
-#                     # may be redundant with the break statement above2
-#                     if gene not in plusdict[genomeName]:
-#                         # Puts the HSP in the correct order -  hits to the negative strand will be
-#                         # reversed compared to what we're looking for
-#                         if hsp.sbjct_start < hsp.sbjct_end:
-#                             # Append the start coordinates, end coordinates, and the calculated percent ID
-#                             incomplete.append((hsp.sbjct_start, hsp.sbjct_end, percentIdentity))
-#                         else:
-#                             # Reverse the start and end as required
-#                             incomplete.append((hsp.sbjct_end, hsp.sbjct_start, percentIdentity))
-#                     threadlock.release()
-#     # Once the list is completely populated, find if any partial matches add together for a match that passes the cutoff
-#     if incomplete:
-#         # Initialise totalPercentID as the first percent ID value in the list
-#         totalPercentID = float(sorted(incomplete)[0][2])
-#         # Initialise adjusted percent ID to 0
-#         adjPercentID = 0
-#         # I'm not sure if this is necessary here, but I'm not changing it now
-#         threadlock.acquire()
-#         # Initialise currentEntry to the current entry
-#         currentEntry = [sorted(incomplete)[0][0], sorted(incomplete)[0][1], sorted(incomplete)[0][2]]
-#         # For each entry in the sorted list of incomplete matches
-#         # Should look something like: [(1, 915, 45.15), (892, 2048, 49.28)]
-#         for entry in sorted(incomplete):
-#             # If entry[0] is less than currentEntry[1], which is less than entry[1]
-#             # From the example above: 892 is less than 915 is less than 2048
-#             if entry[0] < currentEntry[1] < entry[1]:
-#                 # The fragment length is the length between entry[0] and entry[1]
-#                 # e.g. 2048 - 892 = 1156
-#                 fragLength = len(range(entry[0], entry[1]))
-#                 # Adjusted fragment length is the length between currentEntry[1] and entry[1]
-#                 # e.g. 2048 - 915 = 1133
-#                 adjFragLength = len(range(currentEntry[1], entry[1]))
-#                 # Adjusted percent ID is the currentEntry percent ID + entry percent ID
-#                 # times the correction factor of adjust fragment length over fragment length
-#                 # e.g. 45.15 + (49.28 * (1133/1156) = 45.15 + (49.28 * 0.9801) = 45.15 + 48.2995 = 93.45
-#                 adjPercentID = float(currentEntry[2]) + (float(entry[2]) * adjFragLength / fragLength)
-#                 # Set current entry to currentEntry[0], entry[1], adjusted percent ID
-#                 # e.g. [1, 2048, 93.45]
-#                 currentEntry = [currentEntry[0], entry[1], "%.2f" % adjPercentID]
-#                 # Update totalPercentID
-#                 totalPercentID = "%.2f" % adjPercentID
-#             # If entry[0] is greater than currentEntry[1] - simpler calculation,
-#             # as I don't have to calculate adjusted fragement lengths, I just need to add the percent IDs
-#             # e.g. [(1, 892, 45.15), (915, 2048, 49.28)] - 915 is greater than 892
-#             elif entry[0] >= currentEntry[1]:
-#                 # Get the percent ID from entry[2]
-#                 # e.g. 49.28
-#                 adjPercentID = float("%.2f" % float(entry[2]))
-#                 # Add the adjusted percent ID to the currentEntry percentID
-#                 # e.g. 45.15 + 49.28 = 94.43
-#                 totalPercentID = "%.2f" % (float(currentEntry[2]) + adjPercentID)
-#                 # Set the current entry as above
-#                 currentEntry = [currentEntry[0], entry[1], totalPercentID]
-#         # If the total percent ID calculated above is greater than the cutoff, add the results to the dictionary
-#         if totalPercentID > cutoff * 100:
-#             plusdict[genomeName][gene][analysisType] = totalPercentID
-#         threadlock.release()  # precaution for populate dictionary with GIL
 
 
 class runblast(threading.Thread):
@@ -385,6 +305,16 @@ def blaster(path, cutoff, sequencePath, targetPath, name):
     # Get the genome files into a list - note that they must be in the "sequences" subfolder of the path,
     # and the must have a file extension beginning with ".fa"
     strains = glob("%s*.fa*" % sequencePath)
+    if os.path.isdir(sequencePath):
+        strains = glob("%s*.fa*" % sequencePath)
+        print '[%s] GeneSeekr input is path with %s genomes' % (time.strftime("%H:%M:%S"), len(strains))
+    elif os.path.isfile(strains):
+        strains = [sequencePath,]
+        singlestrain = os.path.split(sequencePath)[1]
+        print 'GeneSeeker input is a single file \n%s' % singlestrain
+    else:
+        print "The variable \"--genomes\" is not a folder or file"
+        return
     # Create the threads for the BLAST analysis
     for i in range(len(strains)):
         threads = runblast(blastqueue)
