@@ -80,7 +80,7 @@ def makeblastdb(dqueue):
         # print nhr
         FNULL = open(os.devnull, 'w')  # define /dev/null
         if not os.path.isfile(str(nhr)):  # if check for already existing dbs
-            subprocess.Popen(shlex.split("makeblastdb -in %s -dbtype nucl -out %s" % (fastapath, db)), stdout=FNULL, stderr=FNULL)
+            subprocess.Popen(shlex.split("makeblastdb -in %s -dbtype nucl -out %s" % (fastapath, db)))
             # make blastdb
             dotter()
         dqueue.task_done()  # signals to dqueue job is done
@@ -146,16 +146,20 @@ def blastparse(blast_handle, genome, gene):
                 #     #     plusdict[genome] = defaultdict(list)
                 #     # if gene not in plusdict[genome]:  # add genes to plus dict
                 #     #     plusdict[genome][gene] = []
+                genename = alignment.title.split(" ")[1].split('_')
+                gene = genename[0]
+                if gene not in plusdict[genome]:
+                    plusdict[genome][gene] = []
                 if plusdict[genome][gene] == [] and hsp.identities == alignment.length:
                     # If there is only one good match then apply allele number
-                    plusdict[genome][gene].append(alignment.title.split('_')[-1])
+                    plusdict[genome][gene].append(genename[-1])
                 elif hsp.identities == alignment.length:
                     # If there is multiple matches then added them in a string
-                    plusdict[genome][gene].append(alignment.title.split('_')[-1])
+                    plusdict[genome][gene].append(genename[-1])
                     plusdict[genome][gene].sort()
                 else:
                     # or add the
-                    plusdict[genome][gene].append('%s (%s/%s)' % (alignment.title.split('_')[-1],
+                    plusdict[genome][gene].append('%s (%s/%s)' % (genename[-1],
                                                                   hsp.identities,
                                                                   alignment.length))
 
@@ -178,11 +182,13 @@ class runblast(threading.Thread):
             threadlock.acquire()
             # Add the appropriate variables to blast path
             blastpath.append((out, path[-1], gene, genename,))  # tuple-list
-            try:
-                plusdict[genome][genename] = []
-            except KeyError:
+            if genome not in plusdict:
                 plusdict[genome] = {}
-                plusdict[genome][genename] = []
+            # try:
+            #     plusdict[genome][genename] = []
+            # except KeyError:
+            #     plusdict[genome] = {}
+            #     plusdict[genome][genename] = []
             threadlock.release()
             # Checks to see if this BLAST search has previously been performed
             if not os.path.isfile(out):
@@ -227,8 +233,9 @@ def blastnthreads(fastas, genomes, analysisType, cutoff):
     """Setup and create  threads for blastn and xml path"""
     blastexist = {}
     # Create threads for each gene, genome combination
-    for genome in genomes:
-        for fasta in fastas:
+    for fasta in fastas:
+        for genome in genomes:
+
             # Add the appropriate variables to the threads
             blastqueue.put((genome, fasta, blastexist, analysisType, cutoff))
         blastqueue.join()
@@ -301,7 +308,18 @@ def blaster(path, cutoff, sequencePath, targetPath, name):
     blastpath = []
     # Run organism chooser to allow the user to choose which databases to use
     # returns the organism name, and lists of
-    queryGenes, qualityGenes, organismName = organismChooser(path, targetPath, name)
+    # queryGenes, qualityGenes, organismName = organismChooser(path, targetPath, name)
+    # Set the required variables as necessary
+    if os.path.isfile(targetPath):
+        foldertest = [targetPath,]
+    else:
+        foldertest = glob(targetPath + "/*.fa*")
+    # queryGenes are presumably the genes found by foldertest
+    queryGenes = foldertest
+    # There are likely not going to be qualityGenes included in a custom analysis
+    qualityGenes = []
+    # Organism name is simply the name of the folder containing the targets
+    organismName = name
     # Get the genome files into a list - note that they must be in the "sequences" subfolder of the path,
     # and the must have a file extension beginning with ".fa"
     if os.path.isdir(sequencePath):

@@ -95,6 +95,7 @@ def sorter(markers, genomes, outdir, target, evalue, estop):
     json.dump(typing, open(outdir + 'typing.json', 'w'), sort_keys=False, indent=4, separators=(',', ': '))
     json.dump(removed, open(outdir + 'removed.json', 'w'), sort_keys=False, indent=4, separators=(',', ': '))
     for sigtarget in typing:
+        print typing
         SigSeekr(typing, typing[sigtarget], outdir, evalue, float(estop), 200, 1)
 
 
@@ -110,7 +111,7 @@ parser.add_argument('-s', '--estop', default=1e-70, help='Specify the upper E-va
 # parser.add_argument('-t', '--target', required=True, help='Specify target genome or folder')
 args = vars(parser.parse_args())
 
-sorter(os.path.join(os.path.abspath(args['marker']), ""),
+sorter(args['marker'],
        os.path.join(os.path.abspath(args['input']), ""),
        os.path.join(os.path.abspath(args['output']), ""),
        os.path.abspath(args['target']), args['evalue'],

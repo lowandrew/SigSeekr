@@ -5,7 +5,7 @@ BLASTing at different e-values
 Masking of the resultant
 """
 import time, Queue, threading, cStringIO, os, sys
-from GeneSeekr import makedbthreads
+from GeneSeeker import makedbthreads
 from shutil import copy
 from Bio.Blast.Applications import NcbiblastnCommandline
 from Bio import SearchIO, SeqIO
@@ -183,10 +183,11 @@ def SigSeekr(targets, nontargets, nontargetdir, evalue, estop, minlength, iterat
     minLength = minlength
     # nontargets = []
     unique = os.path.split(nontargetdir)[0] + "/Unique/"
-    print unique
     if not os.path.exists(unique):
         os.mkdir(unique)
     NonTargetFiles, rmlst = zip(*nontargets)
+    print "[%s] Creating BLAST databases" \
+          % (time.strftime("%H:%M:%S"))
     makedbthreads(NonTargetFiles)
     print "[%s] There are %s target genomes and %s non-target genomes" \
           % (time.strftime("%H:%M:%S"), len(targets), len(nontargets))

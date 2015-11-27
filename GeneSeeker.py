@@ -32,11 +32,10 @@ def makeblastdb(dqueue):
         nhr = "%s.nhr" % db  # add nhr for searching
         FNULL = open(os.devnull, 'w')  # define /dev/null
         if not os.path.isfile(str(nhr)):  # if check for already existing dbs
-            subprocess.Popen(shlex.split("makeblastdb -in %s -dbtype nucl -out %s" % (fastapath, db)))
+            subprocess.Popen(shlex.split("makeblastdb -in %s -dbtype nucl -out %s" % (fastapath, db)), stderr=FNULL, stdout=FNULL)
             # make blastdb
             dotter()
         dqueue.task_done() # signals to dqueue job is done
-        sys.exit()
 
 # Declare queues, list, and dict
 dqueue = Queue()
@@ -52,7 +51,7 @@ threadlock = threading.Lock()
 
 def makedbthreads(fastas):
     ''' Setup and create threads for class'''
-    for i in range(len(fastas)):
+    for i in range(12):
         threads = Thread(target=makeblastdb, args=(dqueue,))
         threads.setDaemon(True)
         threads.start()

@@ -37,8 +37,8 @@ def SigWritter(uniquename, target, uniquecount, targetname, evalue):
             #     evaluehit = False
     print 'Writing %i sequence(s) to file' % uniquecount
     handle.close()
-forward = 'ATCGATGGTGCCTTCGGC'
-reverse = 'AAAAGCGGGCAAAACAAAAGG'
+forward = 'GGAAACCAACCTCAGTATGT'
+reverse = 'CATACCCGCTTTCATCACTA'
 
 # reverse = 'ATCGATGGTGCCTTCGGC'
 # forward = 'AAAAGCGGGCAAAACAAAAGG'
