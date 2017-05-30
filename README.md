@@ -1,17 +1,17 @@
-#USS-Ppip
+# USS-Ppip
 Unique Strain-Specific Python Probe Identifying Program
 
-##Requirements
+## Requirements
 - rMLST data from [PubMLST](http://pubmlst.org/rmlst/) (requires an account) in *.fasta format
 - Genomes folder in your working directory containing *.fa files
 - Target Genome(s)
 - BLASTn and Biopython
 
 
-##Purpose
+## Purpose
 Allows the user to find probes that will differentiate between closely related genomes. rMLST is required for the software to run typing methods. A mass downloader is recommended for downloading rMLST genes
 
-##Use
+## Use
 Core.py is the main handler for typing and unique sequence searching methods
 * Output folder where a csv typing file and Unique sequences folder will be placed `(-o, --output)`
 * Input folder containing *Genomes* folder `(-i, --input)`
