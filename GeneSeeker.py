@@ -28,7 +28,8 @@ def dotter():
 def makeblastdb(dqueue):
     while True:  # while daemon
         fastapath = dqueue.get() # grabs fastapath from dqueue
-        db = fastapath.split('.')[0]  # remove the file extension for easier future globing
+        #db = fastapath  # remove the file extension for easier future globing
+        db = fastapath.replace(".fasta","")
         nhr = "%s.nhr" % db  # add nhr for searching
         FNULL = open(os.devnull, 'w')  # define /dev/null
         if not os.path.isfile(str(nhr)):  # if check for already existing dbs

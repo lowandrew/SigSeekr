@@ -202,7 +202,7 @@ class runblast(threading.Thread):
                 # with different cutoff values - if I want to re-analyse a search with a lower cutoff, I won't have to
                 # re-perform the BLAST search each time
                 db = fasta.split(".")[0]
-                blastn = NcbiblastnCommandline(query=genome, db=db, evalue=0.1, outfmt=5)
+                blastn = NcbiblastnCommandline(query=genome, db=db, evalue=0.1, outfmt=5, out=genome + ".csv")
                 # Note that there is no output file specified -  the search results are currently stored in stdout
                 stdout, stderr = blastn()
                 # Search stdout for matches - if the term Hsp appears (the .find function will NOT

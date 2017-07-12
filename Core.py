@@ -12,6 +12,7 @@ from glob import glob
 from USSPpip import SigSeekr
 import os, shutil, json
 import GeneSeekrUper as GeneSeekr
+from All2AllMash import run_mash, read_mash
 
 def retriever(genomes, output):
     if not os.path.exists(output + "Genomes"):
@@ -82,21 +83,26 @@ def sorter(markers, genomes, outdir, target, evalue, estop):
     if not os.path.exists(outdir + "tmp/"):
         os.mkdir(outdir + "tmp/")
     # genomes = outdir + "Genomes/"
-    nontargets = glob(genomes + "*.fa*")
-    jsonfile = '%sgenedict.json' % outdir
-    nonTargetrMLST = jsonUpGoer(jsonfile, markers, genomes, outdir, 'nontarget')
-    if os.path.exists(target):  # Determine if target is a folder
-        targetjson = '%stargetdict.json' % outdir
-    else:
-        print "The variable \"--targets\" is not a folder or file "
-        return
-    TargetrMLST = jsonUpGoer(targetjson, markers, target, outdir, 'target')
-    typing, removed = compareType(TargetrMLST, nonTargetrMLST)
-    json.dump(typing, open(outdir + 'typing.json', 'w'), sort_keys=False, indent=4, separators=(',', ': '))
-    json.dump(removed, open(outdir + 'removed.json', 'w'), sort_keys=False, indent=4, separators=(',', ': '))
-    for sigtarget in typing:
-        print typing
-        SigSeekr(typing, typing[sigtarget], outdir, evalue, float(estop), 200, 1)
+    # nontargets = glob(genomes + "*.fa*")
+    run_mash(genomes, 12)
+    nontargets = read_mash("tmp/distances.txt", 0.0002)
+    shutil.rmtree("tmp/")
+    # jsonfile = '%sgenedict.json' % outdir
+    # nonTargetrMLST = jsonUpGoer(jsonfile, markers, genomes, outdir, 'nontarget')
+    # if os.path.exists(target):  # Determine if target is a folder
+    #    targetjson = '%stargetdict.json' % outdir
+    #else:
+    #    print "The variable \"--targets\" is not a folder or file "
+    #    return
+    # TargetrMLST = jsonUpGoer(targetjson, markers, target, outdir, 'target')
+    # typing, removed = compareType(TargetrMLST, nonTargetrMLST)
+    # json.dump(typing, open(outdir + 'typing.json', 'w'), sort_keys=False, indent=4, separators=(',', ': '))
+    # json.dump(removed, open(outdir + 'removed.json', 'w'), sort_keys=False, indent=4, separators=(',', ': '))
+    # for sigtarget in typing:
+    #    print typing
+    #    print typing[sigtarget]
+    #    SigSeekr(typing, typing[sigtarget], outdir, evalue, float(estop), 200, 1)
+    SigSeekr(target, nontargets, outdir, evalue, float(estop), 200, 1)
 
 
 #Parser for arguments
@@ -107,7 +113,7 @@ parser.add_argument('-i', '--input', required=True, help='Specify input genome f
 parser.add_argument('-m', '--marker', required=True, help='Specify rMLST folder')
 parser.add_argument('-t', '--target', required=True, help='Specify target genome or folder')
 parser.add_argument('-e', '--evalue', default=1e-1, help='Specify elimination E-value lower limit (default 1e-50)')
-parser.add_argument('-s', '--estop', default=1e-70, help='Specify the upper E-value limit (default 1e-90)')
+parser.add_argument('-s', '--estop', default=1e-90, help='Specify the upper E-value limit (default 1e-90)')
 # parser.add_argument('-t', '--target', required=True, help='Specify target genome or folder')
 args = vars(parser.parse_args())
 
