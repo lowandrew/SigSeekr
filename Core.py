@@ -75,7 +75,7 @@ def compareType(TargetrMLST, nonTargetrMLST):
                 removed[genome].append((nontarget, value))
     return typing, removed
 
-def sorter(markers, genomes, outdir, target, evalue, estop):
+def sorter(genomes, outdir, target, evalue, estop, mash_cutoff):
     '''Strip first allele off each locus to feed into geneseekr and return dictionary
     '''
     # if not os.path.exists(outdir + "Genomes/"):
@@ -85,7 +85,7 @@ def sorter(markers, genomes, outdir, target, evalue, estop):
     # genomes = outdir + "Genomes/"
     # nontargets = glob(genomes + "*.fa*")
     run_mash(genomes, 12)
-    nontargets = read_mash("tmp/distances.txt", 0.0002)
+    nontargets = read_mash("tmp/distances.txt", mash_cutoff)
     shutil.rmtree("tmp/")
     # jsonfile = '%sgenedict.json' % outdir
     # nonTargetrMLST = jsonUpGoer(jsonfile, markers, genomes, outdir, 'nontarget')
@@ -102,7 +102,7 @@ def sorter(markers, genomes, outdir, target, evalue, estop):
     #    print typing
     #    print typing[sigtarget]
     #    SigSeekr(typing, typing[sigtarget], outdir, evalue, float(estop), 200, 1)
-    SigSeekr(target, nontargets, outdir, evalue, float(estop), 200, 1)
+    SigSeekr(target, nontargets, outdir, float(evalue), float(estop), 200, 1)
 
 
 #Parser for arguments
@@ -110,15 +110,18 @@ parser = ArgumentParser(description='Find Universal Strain-Specifc Probes')
 parser.add_argument('--version', action='version', version='%(prog)s v0.5')
 parser.add_argument('-o', '--output', required=True, help='Specify output directory')
 parser.add_argument('-i', '--input', required=True, help='Specify input genome fasta folder')
-parser.add_argument('-m', '--marker', required=True, help='Specify rMLST folder')
 parser.add_argument('-t', '--target', required=True, help='Specify target genome or folder')
-parser.add_argument('-e', '--evalue', default=1e-1, help='Specify elimination E-value lower limit (default 1e-50)')
-parser.add_argument('-s', '--estop', default=1e-90, help='Specify the upper E-value limit (default 1e-90)')
+parser.add_argument('-e', '--evalue', type=float, default=1e-40, help='Specify elimination E-value lower limit (default 1e-50)')
+parser.add_argument('-s', '--estop', type=float, default=1e-90, help='Specify the upper E-value limit (default 1e-90)')
+parser.add_argument('-c', '--mash_cutoff', type=float, default=0.0002, help='Cutoff value to use for genome'
+                                                                            ' elimination. Must be a float between'
+                                                                            '0 and 1. Default is 0.0002, higher values'
+                                                                            'eliminate more genomes.')
 # parser.add_argument('-t', '--target', required=True, help='Specify target genome or folder')
 args = vars(parser.parse_args())
 
-sorter(args['marker'],
+sorter(
        os.path.join(os.path.abspath(args['input']), ""),
        os.path.join(os.path.abspath(args['output']), ""),
        os.path.abspath(args['target']), args['evalue'],
-       args['estop'])
+       args['estop'], args['mash_cutoff'])

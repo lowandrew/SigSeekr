@@ -102,13 +102,13 @@ class RunBlast(threading.Thread):
                 stdout, stderr = blastn()
                 sys.stdout.write('[%s] [%s/%s] ' % (time.strftime("%H:%M:%S"), count, t))
                 if not stdout:
-                    print colored("%s has no significant similarity to \"%s\"(%s) with an elimination E-value: %g"
-                                  % (tname, ntname, allele, evalue), 'red')
+                    print colored("%s has no significant similarity to \"%s\" with an elimination E-value: %g"
+                                  % (tname, ntname, evalue), 'red')
                 else:
                     # music.load('/run/media/blais/blastdrive/coin.wav')
                     # music.play()
-                    print colored("Now eliminating %s sequences with significant similarity to \"%s\"(%s) with an "
-                                  "elimination E-value: %g" % (tname, nontarget, allele, evalue), 'blue', attrs=['blink'])
+                    print colored("Now eliminating %s sequences with significant similarity to \"%s\" with an "
+                                  "elimination E-value: %g" % (tname, nontarget, evalue), 'blue', attrs=['blink'])
                     # threadlock.acquire()
                     blastparse(stdout, target, tname, ntname)
                     # evaluehit += 1
@@ -175,7 +175,7 @@ def SigWritter(uniquename, target, uniquecount, targetname, evalue):
                     isunique = False
             if isunique is True:
                 uniquecount += 1
-                print 'Found Sequence(s) at E-value: ' + str(evalue)
+                print '[%s] Found Sequence(s) at E-value: %f' % (time.strftime("%H:%M:%S"), evalue)
                 handle.write('>usid%04i_%g_%s_%s\n' % (uniquecount, evalue, targetname, idline))
                 handle.write(sequence + '\n')
             # else:
@@ -205,7 +205,7 @@ def SigSeekr(targ, nontargets, nontargetdir, evalue, estop, minlength, iteration
     counter = 0
     estart = int(log10(evalue))
     for i in range(len(nontargets)):
-        print threading.active_count()
+        # print threading.active_count()
         threads = RunBlast(blastqueue)
         threads.setDaemon(True)
         threads.start()
@@ -235,6 +235,9 @@ def SigSeekr(targ, nontargets, nontargetdir, evalue, estop, minlength, iteration
                 if result is not None:
                     print("NotNoneResult")
                     uniquecount = SigWritter(uniquename, target, uniquecount, targetname, evalue)
+                    if uniquecount > 1:
+                        print colored ("Found %d signature sequences. Program complete!" % uniquecount, "green")
+                        sys.exit()
                 else:
                     print 'Query file is empty'
                     # music.load('/run/media/blais/blastdrive/1up.wav')
@@ -264,5 +267,5 @@ def SigSeekr(targ, nontargets, nontargetdir, evalue, estop, minlength, iteration
         # music.load('/run/media/blais/blastdrive/fail.mp3')
         # music.play()
         if result is None:
-           print "No signature sequences found :("
+           print colored ("No signature sequences found :(", 'blue')
         # time.sleep(4)
