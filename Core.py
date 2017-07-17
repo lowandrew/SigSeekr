@@ -5,8 +5,8 @@ This will require the user to download rMLST data
 To sort rMLST results and remove closely related sequences
 then to prepare the data for strain-specific probe idenification
 """
+
 from argparse import ArgumentParser
-from copy import deepcopy
 from collections import defaultdict
 from glob import glob
 from USSPpip import SigSeekr
@@ -52,27 +52,6 @@ def alleledictbuild(TargetrMLST, nonTargetrMLST):
                         typing[genome][nontarget] += 1
     return typing
 
-def compareType(TargetrMLST, nonTargetrMLST):
-    '''
-    Compare the rMLST types by making sure that the alleles are exactly the same size
-    Record list of genomes not included in non-target selection
-    Requires target and non-target dictionaries as inputs
-    '''
-    removed = defaultdict(list)
-    # nontyping = alleledictbuild(nonTargetrMLST, nonTargetrMLST)
-    typing = alleledictbuild(TargetrMLST, nonTargetrMLST)
-    typing_bak = deepcopy(typing)
-    typing = defaultdict(list)
-    for genome in typing_bak:
-        for nontarget, value in sorted(typing_bak[genome].iteritems(), key=lambda (k, v): (v, k), reverse=True):
-        # sort dic*.fionary by alleles in common
-            if 0 < value < 53:
-                if genome not in typing:
-                    typing[genome] = []
-                # Actual number of alleles: 53
-                typing[genome].append((nontarget, value))
-            else:
-                removed[genome].append((nontarget, value))
     return typing, removed
 
 def sorter(genomes, outdir, target, evalue, estop, mash_cutoff):
@@ -80,8 +59,10 @@ def sorter(genomes, outdir, target, evalue, estop, mash_cutoff):
     '''
     # if not os.path.exists(outdir + "Genomes/"):
     #     retriever(genomes, outdir)
+    if not os.path.exists(outdir):
+        os.makedirs(outdir)
     if not os.path.exists(outdir + "tmp/"):
-        os.mkdir(outdir + "tmp/")
+        os.makedirs(outdir + "tmp/")
     # genomes = outdir + "Genomes/"
     # nontargets = glob(genomes + "*.fa*")
     run_mash(genomes, 12)

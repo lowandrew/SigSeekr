@@ -1,10 +1,12 @@
-__author__ = 'mikeknowles'
+__author__ = 'mikeknowles', 'andrewlow'
 """
 Strain-specific probe idenification through:
 BLASTing at different e-values
 Masking of the resultant
 """
-import time, Queue, threading, cStringIO, os, sys
+from queue import Queue
+from io import StringIO
+import time, threading, os, sys
 from GeneSeeker import makedbthreads
 from shutil import copy
 from Bio.Blast.Applications import NcbiblastnCommandline
@@ -15,7 +17,7 @@ from termcolor import colored
 from mmap import mmap, ACCESS_READ
 import regex as re
 
-blastqueue = Queue.Queue(maxsize=12)
+blastqueue = Queue(maxsize=12)
 threadlock = threading.Lock()
 recorddict = {}
 wordsize = [30, 25, 20, 20, 20, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 4, 4, 4, 4]
@@ -26,56 +28,32 @@ evaluehit = 0
 
 def blastparse(stdout, output, tname, ntname):
     global recorddict, minLength
-    # evaluehit = True
     handle = open(output, 'w')  # open the target fasta file for writing
-    blast_handle = cStringIO.StringIO(stdout)  # Convert string to IO object for use in SearchIO using StringIO
+    blast_handle = StringIO(stdout)  # Convert string to IO object for use in SearchIO using StringIO
     try:  # Necessary to avoid bad genomes
         for qresult in SearchIO.parse(blast_handle, 'blast-tab'):  # Parse the blast output sting as if it were a file
             for hit in qresult:  # Hit object
                 for hsp in hit:  # Hsp object
                     begin = hsp.query_range[0]  # Start of hsp
                     finish = hsp.query_range[1]  # End of hsp
-                    #print begin, finish
                     if hsp.query_id in recorddict:
-                        # Change the hit to lower case for the first time
-                        sequence = recorddict[hsp.query_id].seq[begin:finish]  # make mutable
-                        #print sequence
-                        sequence = "N" * (len(sequence) + 1)
-                        #if sequence != "N" * len(sequence):
-                        #    if str(sequence).isupper():
-                        #        # sequence = sequence[begin:finish].tostring().lower()
-                        #       recorddict[hsp.query_id].seq[begin:finish] = str(sequence).lower()
-                        #        # print repr(recorddict[hsp.query_id].seq[begin:finish])
-                        #    elif re.search('[A-Z]+', str(sequence)) is not None:
-                        #        recorddict[hsp.query_id].seq[begin:finish] = str(sequence).lower()
-                        #    # For the Contig name in the target fasta dictionary mask using coordinates
-                        #    else:
+                        sequence = recorddict[hsp.query_id].seq[begin:finish]  # make mutable - Don't know if this necessary.
+                        sequence = "N" * len(sequence) # Change the sequence to all Ns to denote that it's found.
                         if finish > begin:
-                            recorddict[hsp.query_id].seq[begin:finish] = sequence
-                        #        recorddict[hsp.query_id].seq[:begin] + 'N' * (finish - begin + 1) \
-                        #        + recorddict[hsp.query_id].seq[finish:]
+                            recorddict[hsp.query_id].seq[begin:finish] = sequence  # Insert the Ns
                         else:
                             recorddict[hsp.query_id].seq[finish:begin] = sequence
-                        #    recorddict[hsp.query_id].seq \
-                        #        = recorddict[hsp.query_id].seq[:finish] + 'N' * (begin - finish + 1) \
-                        #                + recorddict[hsp.query_id].seq[begin:]
         recorddict_bak = deepcopy(recorddict)  # Copy the dictionary so we may iterate and modify the result
         for idline in recorddict_bak:
-            # recorddict[idline].seq = recorddict[idline].seq.toseq()
-            # pattern = r'[^N]{'+ re.escape(str(minLength))+r'}' #  Find a sequence of at least the target length
             # This regex makes sure that the target seq still has lengthy enough sequences available.
-            pattern = r'[^N]{'+ re.escape(str(minLength))+r',}|[ATCG]{20,}N{200,900}[ATCG]{20,}'
+            # pattern = r'[^N]{' + re.escape(str(minLength))+r',}|[ATCG]{20,}N{200,900}[ATCG]{20,}'
+            pattern = r'[^N]{' + re.escape(str(minLength))+r',}'
             if re.match(pattern, str(recorddict[idline].seq), re.IGNORECASE, overlapped=True) is not None:
                 SeqIO.write(recorddict[idline], handle, "fasta")
-                # recorddict[idline].seq = recorddict[idline].seq.tomutable()
             else:
-                # print 'Contig \'%s\' not written to file' % id
                 recorddict.pop(idline)
     except ValueError:
-        print 'Value Error: There was an error removing %s genome from %s' % (ntname, tname)
-# import pygame
-# pygame.init()
-# from pygame.mixer import music
+        print('Value Error: There was an error removing %s genome from %s' % (ntname, tname))
 
 
 class RunBlast(threading.Thread):
@@ -83,6 +61,8 @@ class RunBlast(threading.Thread):
         self.blastqueue = blastqueue
         threading.Thread.__init__(self)
 
+    # TODO here: Figure out how to get the BLAST to actually run in parallel - it currently goes one at a time
+    # due to the threadlocks (but breaks everything badly if locks get removed).
     def run(self):
         while True:
             target, nontarget, tname, ntname, evalue, word, t, count, allele = self.blastqueue.get()
@@ -94,7 +74,6 @@ class RunBlast(threading.Thread):
                                                evalue=evalue,
                                                outfmt=6,
                                                perc_identity=100,
-                                               # word_size=word,
                                                ungapped=True,
                                                penalty=-20,
                                                reward=1,
@@ -102,13 +81,11 @@ class RunBlast(threading.Thread):
                 stdout, stderr = blastn()
                 sys.stdout.write('[%s] [%s/%s] ' % (time.strftime("%H:%M:%S"), count, t))
                 if not stdout:
-                    print colored("%s has no significant similarity to \"%s\" with an elimination E-value: %g"
-                                  % (tname, ntname, evalue), 'red')
+                    print(colored("%s has no significant similarity to \"%s\" with an elimination E-value: %g"
+                                  % (tname, ntname, evalue), 'red'))
                 else:
-                    # music.load('/run/media/blais/blastdrive/coin.wav')
-                    # music.play()
-                    print colored("Now eliminating %s sequences with significant similarity to \"%s\" with an "
-                                  "elimination E-value: %g" % (tname, nontarget, evalue), 'blue', attrs=['blink'])
+                    print(colored("Now eliminating %s sequences with significant similarity to \"%s\" with an "
+                                  "elimination E-value: %g" % (tname, nontarget, evalue), 'blue', attrs=['blink']))
                     # threadlock.acquire()
                     blastparse(stdout, target, tname, ntname)
                     # evaluehit += 1
@@ -151,23 +128,32 @@ def restart(target, unique):
         recorddict[record].seq = recorddict[record].seq.tomutable()
     handle.close()
 
+
 def SigWritter(uniquename, target, uniquecount, targetname, evalue):
     targetdict = SeqIO.to_dict(SeqIO.parse(target, 'fasta'))
     copy(target, uniquename + '.' + str(uniquecount))
-    handle = open(uniquename, 'a+')
-    if os.path.getsize(uniquename) != 0:
-        mm = mmap(handle.fileno(), 0, access=ACCESS_READ)
-    else:
-        mm = handle
+    # handle = open(uniquename, 'a+')
+    f = open(uniquename, 'w')
+    # if os.path.getsize(uniquename) != 0:
+    #    mm = mmap(handle.fileno(), 0, access=ACCESS_READ)
+    # else:
+    #     mm = handle
     for idline in recorddict:
+        unique_sequences = re.split('[N+]', str(recorddict[idline].seq))
+        for sequence in unique_sequences:
+            if len(sequence) > minLength:
+                uniquecount += 1
+                f.write('>usid%04i_%g_%s_%s\n' % (uniquecount, evalue, targetname, idline))
+                f.write(sequence + "\n")
+        """
         pattern = r'([^N]{' + re.escape(str(minLength)) + r',})|([ATCG]{20,}[NATCG]{' \
                    + re.escape(str(minLength)) + r',900}[ATCG]{20,})'
-         #  Find a sequence of at least the target length
+        # Find a sequence of at least the target length
         regex = re.compile(pattern, re.IGNORECASE)
-        uniseq = regex.finditer(recorddict[idline].seq.tostring(), overlapped=True)
+        uniseq = regex.finditer(str(recorddict[idline].seq), overlapped=True)
         for coor in uniseq:
             isunique = True
-            sequence = targetdict[idline].seq[coor.start():coor.end()].tostring()
+            sequence = str(targetdict[idline].seq[coor.start():coor.end()])
             handle.seek(0)
 
             for line in handle:
@@ -175,15 +161,18 @@ def SigWritter(uniquename, target, uniquecount, targetname, evalue):
                     isunique = False
             if isunique is True:
                 uniquecount += 1
-                print '[%s] Found Sequence(s) at E-value: %f' % (time.strftime("%H:%M:%S"), evalue)
+                print('[%s] Found Sequence(s) at E-value: %g' % (time.strftime("%H:%M:%S"), evalue))
                 handle.write('>usid%04i_%g_%s_%s\n' % (uniquecount, evalue, targetname, idline))
                 handle.write(sequence + '\n')
             # else:
             #     global evaluehit
             #     evaluehit = False
-    print 'Writing %i sequence(s) to file' % uniquecount
-    handle.close()
+        """
+    if uniquecount != 0:
+        print('Writing %i sequence(s) to file' % uniquecount)
+    f.close()
     return uniquecount
+
 
 def SigSeekr(targ, nontargets, nontargetdir, evalue, estop, minlength, iterations):
     """Targets and nontargets are imported as a list"""
@@ -196,12 +185,12 @@ def SigSeekr(targ, nontargets, nontargetdir, evalue, estop, minlength, iteration
     if not os.path.exists(unique):
         os.mkdir(unique)
     #NonTargetFiles, rmlst = zip(*nontargets)
-    print "[%s] Creating BLAST databases" \
-          % (time.strftime("%H:%M:%S"))
+    print("[%s] Creating BLAST databases" \
+          % (time.strftime("%H:%M:%S")))
     #makedbthreads(NonTargetFiles)
     makedbthreads(nontargets)
-    print "[%s] There are %s target genomes and %s non-target genomes" \
-          % (time.strftime("%H:%M:%S"), len(targets), len(nontargets))
+    print("[%s] There are %s target genomes and %s non-target genomes" \
+          % (time.strftime("%H:%M:%S"), len(targets), len(nontargets)))
     counter = 0
     estart = int(log10(evalue))
     for i in range(len(nontargets)):
@@ -215,11 +204,11 @@ def SigSeekr(targ, nontargets, nontargetdir, evalue, estop, minlength, iteration
         targetnameext = target.split('/')[-1]
         targetname = targetnameext.split('.')[0]
         counter += 1
-        print "[%s] Now parsing target #%i: %s" % (time.strftime("%H:%M:%S"), counter, targetname)
+        print("[%s] Now parsing target #%i: %s" % (time.strftime("%H:%M:%S"), counter, targetname))
         uniquename = unique + targetname + '.unique.fasta'
         uniquecount = 0
         for inc in range(iterations):
-            print "Iteration " + str(inc + 1)
+            print("Iteration " + str(inc + 1))
             if inc > len(wordsize):
                 inc = -1
             word = wordsize[inc]
@@ -230,16 +219,17 @@ def SigSeekr(targ, nontargets, nontargetdir, evalue, estop, minlength, iteration
                 # if evaluehit > 0:
                 #     evaluehit = 0
                 blastnthreads(targetname, targetnameext, nontargets, unique, evalue, word)  # BLASTn
-                print result
+                # print result
                 sys.stdout.write('[%s] ' % (time.strftime("%H:%M:%S")))
                 if result is not None:
-                    print("NotNoneResult")
                     uniquecount = SigWritter(uniquename, target, uniquecount, targetname, evalue)
-                    if uniquecount > 1:
-                        print colored ("Found %d signature sequences. Program complete!" % uniquecount, "green")
+                    if uniquecount >= 1:
+                        print(colored("Found %d signature sequences. Program complete!" % uniquecount, "green"))
                         sys.exit()
+                    else:
+                        restart(target, unique)
                 else:
-                    print 'Query file is empty'
+                    print('Query file is empty')
                     # music.load('/run/media/blais/blastdrive/1up.wav')
                     # music.play()
                     restart(target, unique)
@@ -267,5 +257,5 @@ def SigSeekr(targ, nontargets, nontargetdir, evalue, estop, minlength, iteration
         # music.load('/run/media/blais/blastdrive/fail.mp3')
         # music.play()
         if result is None:
-           print colored ("No signature sequences found :(", 'blue')
+           print(colored("No signature sequences found :(", 'blue'))
         # time.sleep(4)

@@ -8,9 +8,9 @@ Revised with speed improvements
 from Bio.Blast.Applications import NcbiblastnCommandline
 from Bio.Blast import NCBIXML
 from threading import Thread
-from Queue import Queue
+from queue import Queue
 from collections import defaultdict
-from cStringIO import StringIO
+from io import StringIO
 import subprocess, os, glob, time, sys, shlex, re, threading, json, mmap
 count = 0
 
@@ -134,7 +134,7 @@ class runblast(threading.Thread):
                 parsequeue.put((out, genome, genename, mm))
             parsequeue.join()
             if not any(blastpath):
-                print out
+                print(out)
             self.blastqueue.task_done()
 
 
@@ -202,30 +202,30 @@ def blaster(markers, strains, out, name):
     #retrieve genomes from input
     if os.path.isdir(strains):
         genomes = glob.glob(strains + "*.f*")
-        print '[%s] GeneSeekr input is path with %s genomes' % (time.strftime("%H:%M:%S"), len(genomes))
+        print('[%s] GeneSeekr input is path with %s genomes' % (time.strftime("%H:%M:%S"), len(genomes)))
     elif os.path.isfile(strains):
         genomes = [strains,]
         strains = os.path.split(strains)[0]
-        print 'GeneSeeker input is a single file \n%s' % genomes
+        print('GeneSeeker input is a single file \n%s' % genomes)
     else:
-        print "The variable \"--genomes\" is not a folder or file"
+        print("The variable \"--genomes\" is not a folder or file")
         return
     sys.stdout.write("[%s] Creating necessary databases for BLAST" % (time.strftime("%H:%M:%S")))
     #push markers to threads
     makedbthreads(genes)
-    print "\n[%s] BLAST database(s) created" % (time.strftime("%H:%M:%S"))
+    print("\n[%s] BLAST database(s) created" % (time.strftime("%H:%M:%S")))
     if os.path.isfile('%s/%s_blastxmldict.json' % (strains, name)):
-        print "[%s] Loading BLAST data from file" % (time.strftime("%H:%M:%S"))
+        print("[%s] Loading BLAST data from file" % (time.strftime("%H:%M:%S")))
         blastpath = json.load(open('%s/%s_blastxmldict.json' % (strains, name)))
-        print "[%s] Now parsing BLAST database searches" % (time.strftime("%H:%M:%S"))
+        print("[%s] Now parsing BLAST database searches" % (time.strftime("%H:%M:%S")))
         sys.stdout.write('[%s] ' % (time.strftime("%H:%M:%S")))
         parsethreader(blastpath)
     else:
-        print "[%s] Now performing and parsing BLAST database searches" % (time.strftime("%H:%M:%S"))
+        print("[%s] Now performing and parsing BLAST database searches" % (time.strftime("%H:%M:%S")))
         sys.stdout.write('[%s]' % (time.strftime("%H:%M:%S")))
         # make blastn threads and retrieve xml file locations
         blastnthreads(genes, genomes)
-        print '\n'
+        print('\n')
         json.dump(blastpath, open('%s/%s_blastxmldict.json' % (strains, name), 'w'), sort_keys=True, indent=4, separators=(',', ': '))
     csvheader = 'Strain'
     row = ""
@@ -250,5 +250,5 @@ def blaster(markers, strains, out, name):
         csvfile.write(csvheader)
         csvfile.write(row)
     end = time.time() - start
-    print "\n[%s] Elapsed time for rMLST is %ss with %ss per genome" % (time.strftime("%H:%M:%S"), end, end/float(len(genomes)))
+    print("\n[%s] Elapsed time for rMLST is %ss with %ss per genome" % (time.strftime("%H:%M:%S"), end, end/float(len(genomes))))
     return plusdict
