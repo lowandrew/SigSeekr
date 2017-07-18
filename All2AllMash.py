@@ -8,7 +8,7 @@ def run_mash(folder, num_threads):
     # Sketch the files, using number of threads specified. Put the output into tmp.
     if not os.path.isdir(os.path.join(os.getcwd(),"tmp")):
         os.makedirs("tmp")
-    cmd = "mash sketch -p " + str(num_threads) + " -o tmp/reference.msh " + folder + "*.fasta"
+    cmd = "mash sketch -p " + str(num_threads) + " -o tmp/reference.msh " + folder + "*.f*a"
     os.system(cmd)
     # Now that things are sketched, do the all to all. Results also go into tmp.
     cmd = "mash dist -p " + str(num_threads) + " tmp/reference.msh " + folder + "*.fasta" + " > tmp/distances.txt"

@@ -38,7 +38,7 @@ def blastparse(stdout, output, tname, ntname):
                     finish = hsp.query_range[1]  # End of hsp
                     if hsp.query_id in recorddict:
                         sequence = recorddict[hsp.query_id].seq[begin:finish]  # make mutable - Don't know if this necessary.
-                        sequence = "N" * len(sequence) # Change the sequence to all Ns to denote that it's found.
+                        sequence = "N" * len(sequence)  # Change the sequence to all Ns to denote that it's found.
                         if finish > begin:
                             recorddict[hsp.query_id].seq[begin:finish] = sequence  # Insert the Ns
                         else:
@@ -80,14 +80,15 @@ class RunBlast(threading.Thread):
                                                )
                 stdout, stderr = blastn()
                 sys.stdout.write('[%s] [%s/%s] ' % (time.strftime("%H:%M:%S"), count, t))
+                # threadlock.acquire()
                 if not stdout:
                     print(colored("%s has no significant similarity to \"%s\" with an elimination E-value: %g"
                                   % (tname, ntname, evalue), 'red'))
                 else:
                     print(colored("Now eliminating %s sequences with significant similarity to \"%s\" with an "
                                   "elimination E-value: %g" % (tname, nontarget, evalue), 'blue', attrs=['blink']))
-                    # threadlock.acquire()
                     blastparse(stdout, target, tname, ntname)
+                    # threadlock.release()
                     # evaluehit += 1
             else:
                 global result
