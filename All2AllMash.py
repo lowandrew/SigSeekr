@@ -11,7 +11,7 @@ def run_mash(folder, num_threads):
     cmd = "mash sketch -p " + str(num_threads) + " -o tmp/reference.msh " + folder + "*.f*a"
     os.system(cmd)
     # Now that things are sketched, do the all to all. Results also go into tmp.
-    cmd = "mash dist -p " + str(num_threads) + " tmp/reference.msh " + folder + "*.fasta" + " > tmp/distances.txt"
+    cmd = "mash dist -p " + str(num_threads) + " tmp/reference.msh " + folder + "*.f*a" + " > tmp/distances.txt"
     os.system(cmd)
 
 
