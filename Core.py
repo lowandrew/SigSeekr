@@ -83,7 +83,12 @@ def sorter(genomes, outdir, target, evalue, estop, mash_cutoff):
     #    print typing
     #    print typing[sigtarget]
     #    SigSeekr(typing, typing[sigtarget], outdir, evalue, float(estop), 200, 1)
-    SigSeekr(target, nontargets, outdir, float(evalue), float(estop), 200, 1)
+    if os.path.isdir(target):
+        fasta_files = glob.glob(target + '/*.f*a')
+        for fasta in fasta_files:
+            SigSeekr(fasta, nontargets, outdir, float(evalue), float(estop), 200, 1)
+    else:
+        SigSeekr(target, nontargets, outdir, float(evalue), float(estop), 200, 1)
 
 
 #Parser for arguments
