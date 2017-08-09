@@ -110,7 +110,8 @@ def sorter(genomes, outdir, target, evalue, estop, mash_cutoff, threads):
             else:
                 os.system('cat ' + fasta + ' >> ' + outdir + '/concatenated_target.fasta')
             # SigSeekr(fasta, nontargets, outdir, float(evalue), float(estop), 200, 1)
-            target = outdir + '/concatenated_target.fasta'
+        target = outdir + '/concatenated_target.fasta'
+        to_remove.append(target)
     else:
         if '.gz' in target:
             uncompress_file(target)

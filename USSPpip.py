@@ -226,7 +226,8 @@ def SigSeekr(targ, nontargets, nontargetdir, evalue, estop, minlength, iteration
                     uniquecount = SigWritter(uniquename, target, uniquecount, targetname, evalue)
                     if uniquecount >= 1:
                         print(colored("Found %d signature sequences. Program complete!" % uniquecount, "green"))
-                        sys.exit()
+                        break
+                        # sys.exit()
                     else:
                         restart(target, unique)
                 else:
