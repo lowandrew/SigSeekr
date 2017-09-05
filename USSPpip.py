@@ -55,6 +55,29 @@ def blastparse(stdout, output, tname, ntname):
     except ValueError:
         print('Value Error: There was an error removing %s genome from %s' % (ntname, tname))
 
+def blastparse_new(stdout):
+    global recorddict, minLength
+    blast_handle = StringIO(stdout)  # Convert string to IO object for use in SearchIO using StringIO
+    areas_to_remove = dict()
+    for qresult in SearchIO.parse(blast_handle, 'blast-tab'):  # Parse the blast output sting as if it were a file
+        for hit in qresult:  # Hit object
+            for hsp in hit:  # Hsp object
+                begin = hsp.query_range[0]  # Start of hsp
+                finish = hsp.query_range[1]  # End of hsp
+                if hsp.query_id in recorddict:
+                    if finish > begin:
+                        if hsp.query_id in areas_to_remove:
+                            areas_to_remove[hsp.query_id].append(str(begin) + "," + str(finish))
+                        else:
+                            areas_to_remove[hsp.query_id] = [str(begin) + "," + str(finish)]
+
+                    else:
+                        if hsp.query_id in areas_to_remove:
+                            areas_to_remove[hsp.query_id].append(str(finish) + "," + str(begin))
+                        else:
+                            areas_to_remove[hsp.query_id] = [str(finish) + "," + str(begin)]
+    return areas_to_remove
+
 
 class RunBlast(threading.Thread):
     def __init__(self, blastqueue):
@@ -84,10 +107,21 @@ class RunBlast(threading.Thread):
                 if not stdout:
                     print(colored("%s has no significant similarity to \"%s\" with an elimination E-value: %g"
                                   % (tname, ntname, evalue), 'red'))
+                    # threadlock.release()
                 else:
                     print(colored("Now eliminating %s sequences with significant similarity to \"%s\" with an "
                                   "elimination E-value: %g" % (tname, nontarget, evalue), 'blue', attrs=['blink']))
+                    # threadlock.release()
                     blastparse(stdout, target, tname, ntname)
+                    """
+                    to_remove = blastparse_new(stdout)
+                    for key in to_remove:
+                        for coordinates in to_remove[key]:
+                            start = coordinates.split(',')[0]
+                            end = coordinates.split(',')[1]
+                            sequence = 'N' * (int(end) - int(start))
+                            recorddict[key].seq[int(start):int(end)] = sequence
+                    """
                     # threadlock.release()
                     # evaluehit += 1
             else:

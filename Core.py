@@ -78,7 +78,7 @@ def sorter(genomes, outdir, target, evalue, estop, mash_cutoff, threads):
     to_remove = list()
     nontargets = glob.glob(genomes + '/*.f*a*')
     for i in range(len(nontargets)):
-        if '.gz' in nontargets[i]:
+        if nontargets[i].endswith('.gz'):
             uncompress_file(nontargets[i])
             to_remove.append(nontargets[i].replace('.gz', ''))
             nontargets[i] = nontargets[i].replace('.gz', '')
@@ -103,7 +103,7 @@ def sorter(genomes, outdir, target, evalue, estop, mash_cutoff, threads):
     if os.path.isdir(target):
         fasta_files = glob.glob(target + '/*.f*a*')
         for fasta in fasta_files:
-            if '.gz' in fasta:
+            if fasta.endswith('.gz'):
                 uncompress_file(fasta)
                 to_remove.append(fasta.replace('.gz', ''))
                 os.system('cat ' + fasta.replace('.gz', '') + ' >> ' + outdir + '/concatenated_target.fasta')
