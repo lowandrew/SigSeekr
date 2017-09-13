@@ -25,11 +25,22 @@ def uncompress_file(filename):
 
 
 def remove_plasmid_sequences(target_file):
-    cmd = 'bbduk.sh ref=plasmid_database.fa in={} out={} overwrite'.format(target_file, target_file.replace('.fasta', '_noplasmids.fasta'))
+    """
+    Also masks phage sequences, so that's cool.
+    :param target_file:
+    :return:
+    """
+    cmd = 'bbduk.sh ref=plasmid_database.fa in={} out={} overwrite'.format(target_file, target_file + '_1.fasta')
     print('Removing plasmid sequences...')
     print(cmd)
     subprocess.call(cmd, shell=True)
-    return target_file.replace('.fasta', '_noplasmids.fasta')
+    cmd = 'bbduk.sh ref=combinedtargets.tfa in={} out={} kmask=N'.format(target_file + '_1.fasta', target_file + '_2.fasta')
+    print(cmd)
+    subprocess.call(cmd, shell=True)
+    os.remove(target_file + '_1.fasta')
+    return target_file + '_2.fasta'
+
+
 
 def sorter(genomes, outdir, target, evalue, estop, mash_cutoff, threads):
     # if not os.path.exists(outdir + "Genomes/"):
