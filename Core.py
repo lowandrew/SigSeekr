@@ -27,7 +27,7 @@ def uncompress_file(filename):
 def remove_plasmid_sequences(target_file):
     """
     Also masks phage sequences, so that's cool.
-    :param target_file:
+    :param target_file: File you want to remove plasmid/phage sequences from.
     :return:
     """
     cmd = 'bbduk.sh ref=plasmid_database.fa in={} out={} overwrite'.format(target_file, target_file + '_1.fasta')

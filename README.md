@@ -6,6 +6,7 @@ Unique Strain-Specific Python Probe Identifying Program
 - Python3.5
 - BLASTn
 - Various python packages (see requirements.txt)
+- BBTools (>= 37.23 - https://jgi.doe.gov/data-and-tools/bbtools/) installed and on your $PATH.
 
 ## Purpose
 Allows the user to find probes that will differentiate between closely related genomes.
