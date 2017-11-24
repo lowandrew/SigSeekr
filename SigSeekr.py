@@ -2,6 +2,7 @@
 
 import subprocess
 import argparse
+import textwrap
 import glob
 import time
 import os
@@ -13,9 +14,6 @@ from accessoryFunctions.accessoryFunctions import printtime
 
 
 """
-NOTE TO SELF: Need to add functionality for only getting kmers that are part of all inclusion genomes, instead of
-only one, as may be the case now.
-Workflow:
 Step 1: Concatenate inclusion and exclusion genomes each into a big multifasta.
 Step 2: Kmerize each multifasta.
 Step 3: Subtract kmers in exclusion kmer database from kmers in inclusion database.
@@ -97,9 +95,45 @@ def remove_n(input_fasta, output_fasta):
             for unique in uniques:
                 if unique != '':
                     outfile.write('>contig{}_sequence{}\n'.format(str(j), str(i)))
+                    unique = textwrap.fill(unique)
                     outfile.write(unique + '\n')
                     i += 1
             j += 1
+
+
+def replace_by_index(stretch, seq):
+    stretch = stretch.split(':')
+    start = int(stretch[0])
+    end = int(stretch[1])
+    seq = seq[:start] + 'N'*(end-start) + seq[end:]
+    return seq
+
+
+def mask_fasta(input_fasta, output_fasta, bedfile):
+    to_mask = dict()
+    with open(bedfile) as bed:
+        lines = bed.readlines()
+    for line in lines:
+        line = line.rstrip()
+        x = line.split()
+        coverage = x[-1]
+        end = x[-2]
+        start = x[-3]
+        name = ' '.join(x[:-3])
+        if coverage == '0':
+            if name in to_mask:
+                to_mask[name].append(start + ':' + end)
+            else:
+                to_mask[name] = [start + ':' + end]
+    fasta_in = SeqIO.parse(input_fasta, 'fasta')
+    for contig in fasta_in:
+        seq = str(contig.seq)
+        if contig.description in to_mask:
+            for item in to_mask[contig.description]:
+                seq = replace_by_index(item, seq)
+            with open(output_fasta, 'a+') as outfile:
+                outfile.write('>{}\n'.format(contig.description))
+                outfile.write(seq + '\n')
 
 
 if __name__ == '__main__':
@@ -124,17 +158,15 @@ if __name__ == '__main__':
     # Make output folder if it doesn't already exist.
     if not os.path.isdir(args.output_folder):
         os.makedirs(args.output_folder)
-    # Concatenate inclusion sequences.
-    printtime('Concatenating inclusion sequences', start)
-    concatenate_fastas(args.inclusion, os.path.join(args.output_folder, 'inclusion.fasta'))
     # Concatenate exclusion sequences.
+    printtime('Finding kmers common to inclusion sequences', start)
+    find_inclusion_kmers(args.inclusion, os.path.join(args.output_folder, 'inclusion_db'))
+    # Concatenate exclusion kmers.
     printtime('Concatenating exclusion sequences', start)
     concatenate_fastas(args.exclusion, os.path.join(args.output_folder, 'exclusion.fasta'))
     # Run KMC on inclusion and exclusion fastas.
     # kmc.kmc(os.path.join(args.output_folder, 'inclusion.fasta'),
     #         os.path.join(args.output_folder, 'inclusion_db'), fm='')
-    printtime('Finding kmers common to inclusion sequences', start)
-    find_inclusion_kmers(args.inclusion, os.path.join(args.output_folder, 'inclusion_db'))
     printtime('Finding exclusion kmers', start)
     kmc.kmc(os.path.join(args.output_folder, 'exclusion.fasta'),
             os.path.join(args.output_folder, 'exclusion_db'), fm='')
@@ -151,7 +183,8 @@ if __name__ == '__main__':
     kmers_to_fasta(os.path.join(args.output_folder, 'inclusion_kmers.txt'),
                    os.path.join(args.output_folder, 'inclusion_kmers.fasta'))
     # Map kmers back to the inclusion fasta
-    bbtools.bbmap(os.path.join(args.output_folder, 'inclusion.fasta'),
+    fasta_to_use = glob.glob(os.path.join(args.inclusion, '*fasta'))[0]
+    bbtools.bbmap(os.path.join(fasta_to_use),
                   os.path.join(args.output_folder, 'inclusion_kmers.fasta'),
                   os.path.join(args.output_folder, 'out.bam'))
     # Sort the resulting bam file.
@@ -160,15 +193,12 @@ if __name__ == '__main__':
     subprocess.call(cmd, shell=True)
     # Use bedtools to get genome coverage for each region of inclusion file.
     cmd = 'bedtools genomecov -ibam {sorted_bamfile} -bga' \
-          ' | awk \'$4 == 0\' > {output_bed}'.format(sorted_bamfile=os.path.join(args.output_folder, 'out_sorted.bam'),
-                                                     output_bed=os.path.join(args.output_folder, 'bedfile.bed'))
+          ' > {output_bed}'.format(sorted_bamfile=os.path.join(args.output_folder, 'out_sorted.bam'),
+                                   output_bed=os.path.join(args.output_folder, 'bedfile.bed'))
     subprocess.call(cmd, shell=True)
     # Mask the regions of the fasta file that have zero coverage.
-    cmd = 'bedtools maskfasta -fi {inclusion_fasta} -bed {bedfile} ' \
-          '-fo {masked_fasta}'.format(inclusion_fasta=os.path.join(args.output_folder, 'inclusion.fasta'),
-                                      bedfile=os.path.join(args.output_folder, 'bedfile.bed'),
-                                      masked_fasta=os.path.join(args.output_folder, 'masked_sequence.fasta'))
-    subprocess.call(cmd, shell=True)
+    mask_fasta(fasta_to_use, os.path.join(args.output_folder, 'masked_sequence.fasta'),
+               os.path.join(args.output_folder, 'bedfile.bed'))
     # Replace all Ns with nothing, so that we're left with only unique sequence.
     remove_n(os.path.join(args.output_folder, 'masked_sequence.fasta'),
              os.path.join(args.output_folder, 'unique_sequence.fasta'))

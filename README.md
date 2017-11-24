@@ -12,6 +12,7 @@ To run SigSeekr, you will need to have the following external programs installed
 - BBTools >= 37.23 (https://jgi.doe.gov/data-and-tools/bbtools/)
 - KMC >= 3.0 (http://sun.aei.polsl.pl/REFRESH/index.php?page=projects&project=kmc&subpage=download)
 - Python >= 3.5
+- bedtools >= 2.26.0 (https://github.com/arq5x/bedtools2/releases/download/v2.26.0/bedtools-2.26.0.tar.gz)
  
 ### Python Package Dependencies
 

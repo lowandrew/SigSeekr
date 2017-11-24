@@ -1,5 +1,2 @@
 biopython>=1.69
-pyparsing>=2.2.0
-regex>=2017.7.11
-six>=1.10.0
-termcolor>=1.1.0
+OLCTools>=0.3.11
