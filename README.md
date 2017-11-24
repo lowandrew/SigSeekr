@@ -1,27 +1,45 @@
-# USS-Ppip
-Unique Strain-Specific Python Probe Identifying Program
+# SigSeekr
 
-## Requirements
-- mash (https://github.com/marbl/mash) installed and present in your $PATH.
-- Python3.5
-- BLASTn
-- Various python packages (see requirements.txt)
-- BBTools (>= 37.23 - https://jgi.doe.gov/data-and-tools/bbtools/) installed and on your $PATH.
+SigSeekr is now new and improved - it uses kmers to find sequences in a set of inclusion genomes that are not present in an exclusion set.
 
-## Purpose
-Allows the user to find probes that will differentiate between closely related genomes.
+### Installation
 
-## Use
-Core.py is the main handler for typing and unique sequence searching methods
-* Output folder where a csv typing file and Unique sequences folder will be placed `(-o, --output)`
-* Input folder containing genomes you want to differentiate from (in *.fasta format) `(-i, --input)`
-* Target genome that you want to make probes for. If this is a folder, all genomes in it will be concatenated into a single genome. `(-t, --target)`
+Just clone this repository - you'll need the SigSeekr.py script.
 
-#### Optional Parameters
-* Evalue start (default 1e-40) `(-e, --evalue)`
-* Evalue stop (default 1e-90) `(-s, --estop)`
-* Mash cutoff to eliminate non-target genomes that are extremely similar to one another. (default 0.0002 - higher means more genomes eliminated) `(-c, --mash_cutoff)`
-* Number of threads to run mash analyses with. Default is number of CPUs on your system. `(-n, --num_threads)`
+### External Dependencies
 
-#### Example
-`Core.py -o USS_Ppip/ -i input_genomes/ -t Ecoli_EDL933.fa`
+To run SigSeekr, you will need to have the following external programs installed and present on your $PATH:
+- BBTools >= 37.23 (https://jgi.doe.gov/data-and-tools/bbtools/)
+- KMC >= 3.0 (http://sun.aei.polsl.pl/REFRESH/index.php?page=projects&project=kmc&subpage=download)
+- Python >= 3.5
+ 
+### Python Package Dependencies
+
+Included in requirements.txt - to install, use pip: `pip install -r requirements.txt`
+
+### Usage
+
+SigSeekr needs a folder containing genomes you want signature sequences (`--inclusion`) for and a folder containing genomes you do not want the signature sequences
+to match to (`--exclusion`). The genomes in these folders must be in FASTA format, end with .fasta, and be uncompressed.
+
+The output folder you specify will end up containing your signature sequences - they will be in a file called `unique_sequence.fasta`.
+
+```
+usage: SigSeekr.py [-h] -i INCLUSION -e EXCLUSION -o OUTPUT_FOLDER
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -i INCLUSION, --inclusion INCLUSION
+                        Path to folder containing genome(s) you want signature
+                        sequences for. Genomes must be in FASTA format
+                        (.fasta), and should not be compressed.
+  -e EXCLUSION, --exclusion EXCLUSION
+                        Path to folder containing exclusion genome(s) - those
+                        you do not want signature sequences for. Genomes must
+                        be in FASTA format (.fasta) and should not be
+                        compressed.
+  -o OUTPUT_FOLDER, --output_folder OUTPUT_FOLDER
+                        Path to folder where you want to store output files.
+                        Folder will be created if it does not exist.
+```
+
