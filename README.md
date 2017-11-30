@@ -1,10 +1,13 @@
+[![Build status](https://travis-ci.org/lowandrew/SigSeekr.svg?master)](https://travis-ci.org/lowandrew)
+
+
 # SigSeekr
 
 SigSeekr is now new and improved - it uses kmers to find sequences in a set of inclusion genomes that are not present in an exclusion set.
 
 ### Installation
 
-Just clone this repository - you'll need the SigSeekr.py script.
+Just clone this repository - you'll need the `SigSeekr.py` script.
 
 ### External Dependencies
 

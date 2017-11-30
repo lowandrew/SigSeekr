@@ -1,2 +1,6 @@
-biopython>=1.69
-OLCTools>=0.3.11
+biopython==1.70
+numpy==1.13.3
+OLCTools==0.3.14
+pkg-resources==0.0.0
+py==1.5.2
+pytest==3.2.5
