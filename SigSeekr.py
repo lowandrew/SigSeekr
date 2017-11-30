@@ -44,7 +44,8 @@ def find_unpaired_reads(fastq_directory, forward_id='_R1', reverse_id='_R2'):
     return unpaired_list
 
 
-def make_inclusion_kmerdb(inclusion_folder, output_db, forward_id='_R1', reverse_id='_R2', tmpdir='tmpinclusion'):
+def make_inclusion_kmerdb(inclusion_folder, output_db, forward_id='_R1', reverse_id='_R2', tmpdir='tmpinclusion',
+                          maxmem='12'):
     # Make the tmpdir, if it doesn't exist already.
     if not os.path.isdir(tmpdir):
         os.makedirs(tmpdir)
@@ -55,15 +56,15 @@ def make_inclusion_kmerdb(inclusion_folder, output_db, forward_id='_R1', reverse
     # Make a database for each item in each list, and place it into the tmpdir.
     i = 1
     for fasta in fastas:
-        kmc.kmc(fasta, os.path.join(tmpdir, 'database{}'.format(str(i))), fm='')
+        kmc.kmc(fasta, os.path.join(tmpdir, 'database{}'.format(str(i))), fm='', m=maxmem)
         i += 1
     for pair in paired_fastqs:
         kmc.kmc(forward_in=pair[0], reverse_in=pair[1], database_name=os.path.join(tmpdir, 'database{}'.format(str(i))),
-                min_occurrences=2)  # For fastqs, make min_occurrence two to hopefully filter out sequencing errors.
+                min_occurrences=2, m=maxmem)  # For fastqs, make min_occurrence two to hopefully filter out sequencing errors.
         i += 1
     for fastq in unpaired_fastqs:
         kmc.kmc(forward_in=fastq, database_name=os.path.join(tmpdir, 'database{}'.format(str(i))),
-                min_occurrences=2)  # For fastqs, make min_occurrence two to hopefully filter out sequencing errors.
+                min_occurrences=2, m=maxmem)  # For fastqs, make min_occurrence two to hopefully filter out sequencing errors.
         i += 1
     # Create a command file to allow kmc to get an intersection of all the inclusion databases created and write to our
     # final inclusion database.
@@ -83,7 +84,8 @@ def make_inclusion_kmerdb(inclusion_folder, output_db, forward_id='_R1', reverse
     shutil.rmtree(tmpdir)
 
 
-def make_exclusion_kmerdb(exclusion_folder, output_db, forward_id='_R1', reverse_id='_R2', tmpdir='tmpexclusion'):
+def make_exclusion_kmerdb(exclusion_folder, output_db, forward_id='_R1', reverse_id='_R2', tmpdir='tmpexclusion',
+                          maxmem='12'):
     # Make the tmpdir, if it doesn't exist already.
     if not os.path.isdir(tmpdir):
         os.makedirs(tmpdir)
@@ -94,15 +96,15 @@ def make_exclusion_kmerdb(exclusion_folder, output_db, forward_id='_R1', reverse
     # Make a database for each item in each list, and place it into the tmpdir.
     i = 1
     for fasta in fastas:
-        kmc.kmc(fasta, os.path.join(tmpdir, 'database{}'.format(str(i))), fm='')
+        kmc.kmc(fasta, os.path.join(tmpdir, 'database{}'.format(str(i))), fm='', m=maxmem)
         i += 1
     for pair in paired_fastqs:
         kmc.kmc(forward_in=pair[0], reverse_in=pair[1], database_name=os.path.join(tmpdir, 'database{}'.format(str(i))),
-                min_occurrences=2)  # For fastqs, make min_occurrence two to hopefully filter out sequencing errors.
+                min_occurrences=2, m=maxmem)  # For fastqs, make min_occurrence two to hopefully filter out sequencing errors.
         i += 1
     for fastq in unpaired_fastqs:
         kmc.kmc(forward_in=fastq, database_name=os.path.join(tmpdir, 'database{}'.format(str(i))),
-                min_occurrences=2)  # For fastqs, make min_occurrence two to hopefully filter out sequencing errors.
+                min_occurrences=2, m=maxmem)  # For fastqs, make min_occurrence two to hopefully filter out sequencing errors.
         i += 1
     # Create a command file to allow kmc to do a union of all the databases you've created and write them to our final
     # exclusion db.
