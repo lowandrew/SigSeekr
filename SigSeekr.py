@@ -54,7 +54,7 @@ def find_unpaired_reads(fastq_directory, forward_id='_R1', reverse_id='_R2'):
 
 
 def make_inclusion_kmerdb(inclusion_folder, output_db, forward_id='_R1', reverse_id='_R2', tmpdir='tmpinclusion',
-                          maxmem='12'):
+                          maxmem='12', threads='2'):
     # Make the tmpdir, if it doesn't exist already.
     if not os.path.isdir(tmpdir):
         os.makedirs(tmpdir)
@@ -65,15 +65,18 @@ def make_inclusion_kmerdb(inclusion_folder, output_db, forward_id='_R1', reverse
     # Make a database for each item in each list, and place it into the tmpdir.
     i = 1
     for fasta in fastas:
-        kmc.kmc(fasta, os.path.join(tmpdir, 'database{}'.format(str(i))), fm='', m=maxmem)
+        kmc.kmc(fasta, os.path.join(tmpdir, 'database{}'.format(str(i))), fm='', m=maxmem, t=threads,
+                tmpdir=os.path.join(tmpdir, str(time.time()).split('.')[0]))
         i += 1
     for pair in paired_fastqs:
         kmc.kmc(forward_in=pair[0], reverse_in=pair[1], database_name=os.path.join(tmpdir, 'database{}'.format(str(i))),
-                min_occurrences=2, m=maxmem)  # For fastqs, make min_occurrence two to hopefully filter out sequencing errors.
+                min_occurrences=2,  # For fastqs, make min_occurrence two to hopefully filter out sequencing errors.
+                m=maxmem, t=threads, tmpdir=os.path.join(tmpdir, str(time.time()).split('.')[0]))
         i += 1
     for fastq in unpaired_fastqs:
         kmc.kmc(forward_in=fastq, database_name=os.path.join(tmpdir, 'database{}'.format(str(i))),
-                min_occurrences=2, m=maxmem)  # For fastqs, make min_occurrence two to hopefully filter out sequencing errors.
+                min_occurrences=2,  # For fastqs, make min_occurrence two to hopefully filter out sequencing errors.
+                m=maxmem, t=threads, tmpdir=os.path.join(tmpdir, str(time.time()).split('.')[0]))
         i += 1
     # Create a command file to allow kmc to get an intersection of all the inclusion databases created and write to our
     # final inclusion database.
@@ -94,7 +97,7 @@ def make_inclusion_kmerdb(inclusion_folder, output_db, forward_id='_R1', reverse
 
 
 def make_exclusion_kmerdb(exclusion_folder, output_db, forward_id='_R1', reverse_id='_R2', tmpdir='tmpexclusion',
-                          maxmem='12'):
+                          maxmem='12', threads='2'):
     # Make the tmpdir, if it doesn't exist already.
     if not os.path.isdir(tmpdir):
         os.makedirs(tmpdir)
@@ -105,15 +108,18 @@ def make_exclusion_kmerdb(exclusion_folder, output_db, forward_id='_R1', reverse
     # Make a database for each item in each list, and place it into the tmpdir.
     i = 1
     for fasta in fastas:
-        kmc.kmc(fasta, os.path.join(tmpdir, 'database{}'.format(str(i))), fm='', m=maxmem)
+        kmc.kmc(fasta, os.path.join(tmpdir, 'database{}'.format(str(i))), fm='', m=maxmem,
+                tmpdir=os.path.join(tmpdir, str(time.time()).split('.')[0]))
         i += 1
     for pair in paired_fastqs:
         kmc.kmc(forward_in=pair[0], reverse_in=pair[1], database_name=os.path.join(tmpdir, 'database{}'.format(str(i))),
-                min_occurrences=2, m=maxmem)  # For fastqs, make min_occurrence two to hopefully filter out sequencing errors.
+                min_occurrences=2, m=maxmem, t=threads,
+                tmpdir=os.path.join(tmpdir, str(time.time()).split('.')[0]))
         i += 1
     for fastq in unpaired_fastqs:
         kmc.kmc(forward_in=fastq, database_name=os.path.join(tmpdir, 'database{}'.format(str(i))),
-                min_occurrences=2, m=maxmem)  # For fastqs, make min_occurrence two to hopefully filter out sequencing errors.
+                min_occurrences=2, m=maxmem, t=threads,
+                tmpdir=os.path.join(tmpdir, str(time.time()).split('.')[0]))
         i += 1
     # Create a command file to allow kmc to do a union of all the databases you've created and write them to our final
     # exclusion db.
@@ -197,11 +203,11 @@ def mask_fasta(input_fasta, output_fasta, bedfile):
                 outfile.write(seq + '\n')
 
 
-def generate_bedfile(ref_fasta, kmers, output_bedfile, tmpdir='bedgentmp'):
+def generate_bedfile(ref_fasta, kmers, output_bedfile, tmpdir='bedgentmp', threads='2'):
     if not os.path.isdir(tmpdir):
         os.makedirs(tmpdir)
     # First, need to generate a bam file - align the kmers to a reference fasta genome.
-    bbtools.bbmap(ref_fasta, kmers, os.path.join(tmpdir, 'out.bam'))
+    bbtools.bbmap(ref_fasta, kmers, os.path.join(tmpdir, 'out.bam'), threads=threads)
     # Once the bam file is generated, turn it into a sorted bamfile so that bedtools can work with it.
     cmd = 'samtools sort {bamfile} -o {sorted_bamfile}'.format(bamfile=os.path.join(tmpdir, 'out.bam'),
                                                                sorted_bamfile=os.path.join(tmpdir, 'out_sorted.bam'))
@@ -214,12 +220,12 @@ def generate_bedfile(ref_fasta, kmers, output_bedfile, tmpdir='bedgentmp'):
     shutil.rmtree(tmpdir)
 
 
-def find_primer_distances(primer_file, reference_file, output_dir, tmpdir='primertmp'):
+def find_primer_distances(primer_file, reference_file, output_dir, tmpdir='primertmp', threads='2'):
     if not os.path.isdir(tmpdir):
         os.makedirs(tmpdir)
     # Step 1: Map the primers back to the reference genome. Only allow perfect matches.
     bbtools.bbmap(reference_file, forward_in=primer_file, out_bam=os.path.join(tmpdir, 'out.bam'), ambig='best',
-                  perfectmode='true')
+                  perfectmode='true', threads=threads)
     bam_handle = pysam.AlignmentFile(os.path.join(tmpdir, 'out.bam'), 'rb')
     pcr_info_list = list()
     # Step 2: Parse the bamfile to find the sequence, start position, end position, and contig mapped to for each
@@ -250,9 +256,11 @@ def main(args):
     start = time.time()
     # Make the necessary inclusion and exclusion kmer sets.
     printtime('Creating inclusion kmer set...', start)
-    make_inclusion_kmerdb(args.inclusion, os.path.join(args.output_folder, 'inclusion_db'))
+    make_inclusion_kmerdb(args.inclusion, os.path.join(args.output_folder, 'inclusion_db'),
+                          tmpdir=os.path.join(args.output_folder, 'inclusiontmp'), threads=str(args.threads))
     printtime('Creating exclusion kmer set...', start)
-    make_exclusion_kmerdb(args.exclusion, os.path.join(args.output_folder, 'exclusion_db'))
+    make_exclusion_kmerdb(args.exclusion, os.path.join(args.output_folder, 'exclusion_db'),
+                          tmpdir=os.path.join(args.output_folder, 'exclusiontmp'), threads=str(args.threads))
     # Now start trying to subtract kmer sets, see how it goes.
     exclusion_cutoff = 1
     while exclusion_cutoff < 10:
@@ -278,7 +286,8 @@ def main(args):
         ref_fasta = glob.glob(os.path.join(args.inclusion, '*.f*a'))[0]
         # Get inclusion kmers into FASTA format.
         generate_bedfile(ref_fasta, os.path.join(args.output_folder, 'inclusion_kmers.fasta'),
-                         os.path.join(args.output_folder, 'regions_to_mask.bed'))
+                         os.path.join(args.output_folder, 'regions_to_mask.bed'),
+                         tmpdir=os.path.join(args.output_folder, 'bedtmp'), threads=str(args.threads))
         mask_fasta(ref_fasta, os.path.join(args.output_folder, 'inclusion_sequence.fasta'),
                    os.path.join(args.output_folder, 'regions_to_mask.bed'))
         remove_n(os.path.join(args.output_folder, 'inclusion_sequence.fasta'),
@@ -295,12 +304,13 @@ def main(args):
         bbtools.bbduk_filter(reference=os.path.join(args.output_folder, 'exclusion_kmers.fasta'),
                              forward_in=os.path.join(args.output_folder, 'inclusion_kmers.fasta'),
                              forward_out=os.path.join(args.output_folder, 'pcr_kmers.fasta'),
-                             k='15')
+                             k='15', threads=str(args.threads))
         # Next step: Get distances between potential primers by mapping back to a reference (if it exists) and getting
         # distances.
         if len(glob.glob(os.path.join(args.inclusion, '*.f*a'))) > 0:
             ref_fasta = glob.glob(os.path.join(args.inclusion, '*.f*a'))[0]
-            find_primer_distances(os.path.join(args.output_folder, 'pcr_kmers.fasta'), ref_fasta, args.output_folder)
+            find_primer_distances(os.path.join(args.output_folder, 'pcr_kmers.fasta'), ref_fasta, args.output_folder,
+                                  tmpdir=os.path.join(args.output_folder, 'pcrtmp'), threads=str(args.threads))
     printtime('SigSeekr run complete!', start, '\033[1;32m')
 
 
@@ -323,7 +333,7 @@ if __name__ == '__main__':
                         required=True,
                         help='Path to folder where you want to store output files. Folder will be created if it '
                              'does not exist.')
-    parser.add_argument('-t', '--threads',  # This doesn't actually do anything right now. Needs to be fixed.
+    parser.add_argument('-t', '--threads',
                         type=int,
                         default=num_cpus,
                         help='Number of threads to run analysis on. Defaults to number of cores on your machine.')
