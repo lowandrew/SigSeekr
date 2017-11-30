@@ -150,6 +150,17 @@ def test_fasta_mask():
     with open('tests/fasta_mask/out.fasta') as f:
         lines = f.readlines()
     assert lines == ['>sequence\n',
-                    'NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNTAGCTACGATCGATCATCATCGAT'
-                    'CATCGATCACGATCATNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN\n']
+                     'NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNTAGCTACGATCGATCATCATCGAT'
+                     'CATCGATCACGATCATNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN\n']
     os.remove('tests/fasta_mask/out.fasta')
+
+
+def test_amplicon():
+    find_primer_distances('tests/amplicon_test/kmers.fasta', 'tests/amplicon_test/reference.fasta',
+                          'tests/amplicon_test')
+    with open('tests/amplicon_test/amplicons.csv') as f:
+        lines = f.readlines()
+    assert lines == ['Sequence1,Sequnce2,Amplicon_Size\n',
+                     'AGCTAGTCACTACAGCTACGATAGCTAGCAT,GGCACCATCGACACGACACCACACACGACAG,123\n',
+                     'GGCACCATCGACACGACACCACACACGACAG,AGCTAGTCACTACAGCTACGATAGCTAGCAT,123\n']
+    os.remove('tests/amplicon_test/amplicons.csv')

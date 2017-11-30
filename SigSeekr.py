@@ -9,10 +9,19 @@ import glob
 import time
 import os
 import re
+import pysam
 from Bio import SeqIO
 from biotools import kmc
 from biotools import bbtools
 from accessoryFunctions.accessoryFunctions import printtime
+
+
+class PcrInfo:
+    def __init__(self, sequence, start, end, contig):
+        self.seq = sequence
+        self.start_position = start
+        self.end_position = end
+        self.contig_id = contig
 
 
 def find_paired_reads(fastq_directory, forward_id='_R1', reverse_id='_R2'):
@@ -205,6 +214,38 @@ def generate_bedfile(ref_fasta, kmers, output_bedfile, tmpdir='bedgentmp'):
     shutil.rmtree(tmpdir)
 
 
+def find_primer_distances(primer_file, reference_file, output_dir, tmpdir='primertmp'):
+    if not os.path.isdir(tmpdir):
+        os.makedirs(tmpdir)
+    # Step 1: Map the primers back to the reference genome. Only allow perfect matches.
+    bbtools.bbmap(reference_file, forward_in=primer_file, out_bam=os.path.join(tmpdir, 'out.bam'), ambig='best',
+                  perfectmode='true')
+    bam_handle = pysam.AlignmentFile(os.path.join(tmpdir, 'out.bam'), 'rb')
+    pcr_info_list = list()
+    # Step 2: Parse the bamfile to find the sequence, start position, end position, and contig mapped to for each
+    # potential primer.
+    for match in bam_handle:
+        ref_name = bam_handle.getrname(match.reference_id)
+        pcr_info_list.append(PcrInfo(match.query_sequence, match.reference_start,
+                                     match.reference_end, ref_name))
+    # Now iterate through the list of pcr info to find out amplicon distances.
+    with open(os.path.join(output_dir, 'amplicons.csv'), 'w') as f:
+        f.write('Sequence1,Sequnce2,Amplicon_Size\n')
+    for primer_one in pcr_info_list:
+        for primer_two in pcr_info_list:
+            # To get amplicon distances need to be on same contig and not be the exact same.
+            if primer_one.contig_id == primer_two.contig_id and primer_one.seq != primer_two.seq:
+                if int(primer_one.end_position) > int(primer_two.end_position):
+                    amplicon_size = int(primer_one.end_position) - int(primer_two.start_position)
+                else:
+                    amplicon_size = int(primer_two.end_position) - int(primer_one.start_position)
+                with open(os.path.join(output_dir, 'amplicons.csv'), 'a+') as f:
+                    f.write('{primer_one_seq},{primer_two_seq},{amplicon_size}\n'.format(primer_one_seq=primer_one.seq,
+                                                                                         primer_two_seq=primer_two.seq,
+                                                                                         amplicon_size=str(amplicon_size)))
+    shutil.rmtree(tmpdir)
+
+
 def main(args):
     start = time.time()
     # Make the necessary inclusion and exclusion kmer sets.
@@ -224,6 +265,7 @@ def main(args):
         with open(os.path.join(args.output_folder, 'unique_kmers.txt')) as f:
             lines = f.readlines()
         if lines != []:
+            printtime('Found kmers unique to inclusion...', start)
             break
         exclusion_cutoff += 1
     # Convert our kmers to FASTA format for usage with other programs.
@@ -232,6 +274,7 @@ def main(args):
     # Now that we have kmers that are unique to inclusion sequence, need to map them back to an inclusion genome, if
     # we have one in FASTA format. This will allow us to find unique regions, instead of just kmers.
     if len(glob.glob(os.path.join(args.inclusion, '*.f*a'))) > 0:
+        printtime('Generating contiguous sequences from inclusion kmers...', start)
         ref_fasta = glob.glob(os.path.join(args.inclusion, '*.f*a'))[0]
         # Get inclusion kmers into FASTA format.
         generate_bedfile(ref_fasta, os.path.join(args.output_folder, 'inclusion_kmers.fasta'),
@@ -242,6 +285,7 @@ def main(args):
                  os.path.join(args.output_folder, 'sigseekr_result.fasta'))
     # If we want to find PCR primers, try to filter out any inclusion kmers that are close to exclusion kmers.
     if args.pcr:
+        printtime('Generating PCR info...', start)
         # First step is to create fasta of exclusion kmers.
         kmc.dump(os.path.join(args.output_folder, 'exclusion_db'),
                  os.path.join(args.output_folder, 'exclusion_kmers.txt'))
@@ -254,6 +298,10 @@ def main(args):
                              k='15')
         # Next step: Get distances between potential primers by mapping back to a reference (if it exists) and getting
         # distances.
+        if len(glob.glob(os.path.join(args.inclusion, '*.f*a'))) > 0:
+            ref_fasta = glob.glob(os.path.join(args.inclusion, '*.f*a'))[0]
+            find_primer_distances(os.path.join(args.output_folder, 'pcr_kmers.fasta'), ref_fasta, args.output_folder)
+    printtime('SigSeekr run complete!', start, '\033[1;32m')
 
 
 if __name__ == '__main__':
@@ -275,7 +323,7 @@ if __name__ == '__main__':
                         required=True,
                         help='Path to folder where you want to store output files. Folder will be created if it '
                              'does not exist.')
-    parser.add_argument('-t', '--threads',
+    parser.add_argument('-t', '--threads',  # This doesn't actually do anything right now. Needs to be fixed.
                         type=int,
                         default=num_cpus,
                         help='Number of threads to run analysis on. Defaults to number of cores on your machine.')
