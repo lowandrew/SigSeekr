@@ -17,6 +17,9 @@ from accessoryFunctions.accessoryFunctions import printtime
 
 
 class PcrInfo:
+    """
+    Class to keep track of things when determining PCR amplicon sizes.
+    """
     def __init__(self, sequence, start, end, contig):
         self.seq = sequence
         self.start_position = start
@@ -41,6 +44,13 @@ def find_paired_reads(fastq_directory, forward_id='_R1', reverse_id='_R2'):
 
 
 def find_unpaired_reads(fastq_directory, forward_id='_R1', reverse_id='_R2'):
+    """
+    Looks at a directory to try to find unpaired fastq files.
+    :param fastq_directory: Complete path to directory containing fastq files.
+    :param forward_id: Identifier for forward reads. Default R1.
+    :param reverse_id: Identifier for reverse reads. Default R2
+    :return: List of unpaired fastq files.
+    """
     unpaired_list = list()
     fastq_files = glob.glob(os.path.join(fastq_directory, '*.f*q*'))
     for name in fastq_files:
@@ -55,6 +65,18 @@ def find_unpaired_reads(fastq_directory, forward_id='_R1', reverse_id='_R2'):
 
 def make_inclusion_kmerdb(inclusion_folder, output_db, forward_id='_R1', reverse_id='_R2', tmpdir='tmpinclusion',
                           maxmem='12', threads='2'):
+    """
+    Given an folder containing some genomes, finds kmers that are common to all genomes, and writes them to output_db.
+    Genomes can be in fasta (uncompressed only? check this) or fastq (gzip compressed or uncompressed) formats.
+    Kmers found are 31-mers.
+    :param inclusion_folder: Path to folder containing your genomes.
+    :param output_db: Base name for the kmc database that will be created.
+    :param forward_id: Forward read identifier.
+    :param reverse_id: Reverse read identifier.
+    :param tmpdir: Directory where temporary databases and whatnot will be stored. Deleted upon method completion.
+    :param maxmem: Maximum amount of memory to use when kmerizing, in GB.
+    :param threads: Number of threads to use. Counterintuitively, should be a string.
+    """
     # Make the tmpdir, if it doesn't exist already.
     if not os.path.isdir(tmpdir):
         os.makedirs(tmpdir)
@@ -91,13 +113,25 @@ def make_inclusion_kmerdb(inclusion_folder, output_db, forward_id='_R1', reverse
             else:
                 f.write('set{}\n'.format(str(j + 1)))
     cmd = 'kmc_tools complex {}'.format(os.path.join(tmpdir, 'command_file'))
-    with open('asdf.txt', 'w') as f:
+    with open(os.path.join(tmpdir, 'asdf.txt'), 'w') as f:
         subprocess.call(cmd, shell=True, stderr=f, stdout=f)
     shutil.rmtree(tmpdir)
 
 
 def make_exclusion_kmerdb(exclusion_folder, output_db, forward_id='_R1', reverse_id='_R2', tmpdir='tmpexclusion',
                           maxmem='12', threads='2'):
+    """
+    Given an folder containing some genomes, finds all kmers that are present in genomes, and writes them to output_db.
+    Genomes can be in fasta (uncompressed only? check this) or fastq (gzip compressed or uncompressed) formats.
+    Kmers found are 31-mers.
+    :param exclusion_folder: Path to folder containing your genomes.
+    :param output_db: Base name for the kmc database that will be created.
+    :param forward_id: Forward read identifier.
+    :param reverse_id: Reverse read identifier.
+    :param tmpdir: Directory where temporary databases and whatnot will be stored. Deleted upon method completion.
+    :param maxmem: Maximum amount of memory to use when kmerizing, in GB.
+    :param threads: Number of threads to use. Counterintuitively, should be a string.
+    """
     # Make the tmpdir, if it doesn't exist already.
     if not os.path.isdir(tmpdir):
         os.makedirs(tmpdir)
@@ -134,12 +168,17 @@ def make_exclusion_kmerdb(exclusion_folder, output_db, forward_id='_R1', reverse
             else:
                 f.write('set{}\n'.format(str(j + 1)))
     cmd = 'kmc_tools complex {}'.format(os.path.join(tmpdir, 'command_file'))
-    with open('asdf.txt', 'w') as f:
+    with open(os.path.join(tmpdir, 'asdf.txt'), 'w') as f:
         subprocess.call(cmd, shell=True, stderr=f, stdout=f)
     shutil.rmtree(tmpdir)
 
 
 def kmers_to_fasta(kmer_file, output_fasta):
+    """
+    Given a kmer dump created by using kmc.dump on a kmc database, will transform into a fasta-formatted file.
+    :param kmer_file: Path to kmer file.
+    :param output_fasta: Path to output file.
+    """
     with open(kmer_file) as infile:
         lines = infile.readlines()
     with open(output_fasta, 'w') as outfile:
@@ -152,6 +191,12 @@ def kmers_to_fasta(kmer_file, output_fasta):
 
 
 def remove_n(input_fasta, output_fasta):
+    """
+    Given a fasta-formatted file with stretches of Ns in it, will give a fasta-formatted file as output that has
+    the original fasta file split into contigs, with a split on each string of Ns.
+    :param input_fasta: Path to input fasta.
+    :param output_fasta: Path to output fasta. Should NOT be the same as input fasta.
+    """
     contigs = SeqIO.parse(input_fasta, 'fasta')
     j = 1
     for contig in contigs:
@@ -169,6 +214,13 @@ def remove_n(input_fasta, output_fasta):
 
 
 def replace_by_index(stretch, seq):
+    """
+    Given a start and end point in a string (in format 'start:end') and a sequence, will replace characters within
+    that stretch with the letter N.
+    :param stretch: Start and end index to replace (in format 'start:end')
+    :param seq: Sequence to change.
+    :return: Sequence modified to have Ns where specified by stretch.
+    """
     stretch = stretch.split(':')
     start = int(stretch[0])
     end = int(stretch[1])
@@ -177,6 +229,13 @@ def replace_by_index(stretch, seq):
 
 
 def mask_fasta(input_fasta, output_fasta, bedfile):
+    """
+    Given a bedfile specifying coverage depths, and an input fasta file corresponding to that bedfile, will create
+    a new fasta file with 0-coverage regions replace with Ns.
+    :param input_fasta: Path to input fasta file.
+    :param output_fasta: Path to output fasta file. Should NOT be the same as input fasta file.
+    :param bedfile: Bedfile containing coverage depth info.
+    """
     to_mask = dict()
     with open(bedfile) as bed:
         lines = bed.readlines()
@@ -204,6 +263,15 @@ def mask_fasta(input_fasta, output_fasta, bedfile):
 
 
 def generate_bedfile(ref_fasta, kmers, output_bedfile, tmpdir='bedgentmp', threads='2'):
+    """
+    Given a reference FASTA file and a fasta-formatted set of kmers, will generate a coverage bedfile for the reference
+    FASTA by mapping the kmers back to the FASTA.
+    :param ref_fasta: Path to reference FASTA.
+    :param kmers: Path to FASTA-formatted kmer file.
+    :param output_bedfile: Path to output bedfile.
+    :param tmpdir: Temporary directory to store intermediate files. Will be deleted upon method completion.
+    :param threads: Number of threads to use for analysis. Must be a string.
+    """
     if not os.path.isdir(tmpdir):
         os.makedirs(tmpdir)
     # First, need to generate a bam file - align the kmers to a reference fasta genome.
@@ -221,6 +289,15 @@ def generate_bedfile(ref_fasta, kmers, output_bedfile, tmpdir='bedgentmp', threa
 
 
 def find_primer_distances(primer_file, reference_file, output_dir, tmpdir='primertmp', threads='2'):
+    """
+    Given a FASTA-formatted file with kmers that might be acceptable to use as primers, will create a CSV file that
+    shows the number of base pairs between each set of primers.
+    :param primer_file: Path to FASTA-formatted file containing kmers.
+    :param reference_file: Path to FASTA-formatted reference file.
+    :param output_dir: Directory where output CSV (called amplicons.csv) will be created.
+    :param tmpdir: Temporary directory to store intermediate files. Deleted upon completion.
+    :param threads: Number of threads to run analysis on. Must be a string.
+    """
     if not os.path.isdir(tmpdir):
         os.makedirs(tmpdir)
     # Step 1: Map the primers back to the reference genome. Only allow perfect matches.
@@ -272,7 +349,7 @@ def main(args):
         # Now need to check if any kmers are present, and if not, increment the counter to allow a more lax search.
         with open(os.path.join(args.output_folder, 'unique_kmers.txt')) as f:
             lines = f.readlines()
-        if lines != []:
+        if lines:
             printtime('Found kmers unique to inclusion...', start)
             break
         exclusion_cutoff += 1
@@ -304,13 +381,25 @@ def main(args):
         bbtools.bbduk_filter(reference=os.path.join(args.output_folder, 'exclusion_kmers.fasta'),
                              forward_in=os.path.join(args.output_folder, 'inclusion_kmers.fasta'),
                              forward_out=os.path.join(args.output_folder, 'pcr_kmers.fasta'),
-                             k='15', threads=str(args.threads))
+                             k='19', threads=str(args.threads))
         # Next step: Get distances between potential primers by mapping back to a reference (if it exists) and getting
         # distances.
         if len(glob.glob(os.path.join(args.inclusion, '*.f*a'))) > 0:
             ref_fasta = glob.glob(os.path.join(args.inclusion, '*.f*a'))[0]
             find_primer_distances(os.path.join(args.output_folder, 'pcr_kmers.fasta'), ref_fasta, args.output_folder,
                                   tmpdir=os.path.join(args.output_folder, 'pcrtmp'), threads=str(args.threads))
+    if not args.keep_tmpfiles:
+        printtime('Removing unnecessary output files...', start)
+        to_remove = glob.glob(os.path.join(args.output_folder, 'exclusion*'))
+        to_remove += glob.glob(os.path.join(args.output_folder, 'unique*'))
+        to_remove += glob.glob(os.path.join(args.output_folder, '*kmc*'))
+        to_remove += glob.glob(os.path.join(args.output_folder, '*.bed'))
+        to_remove += glob.glob(os.path.join(args.output_folder, '*sequence*'))
+        for item in to_remove:
+            try:
+                os.remove(item)
+            except FileNotFoundError:  # In case anything was already deleted, don't try to delete it twice.
+                pass
     printtime('SigSeekr run complete!', start, '\033[1;32m')
 
 
@@ -322,12 +411,14 @@ if __name__ == '__main__':
                         type=str,
                         required=True,
                         help='Path to folder containing genome(s) you want signature sequences for.'
-                             ' Genomes must be in FASTA format (.fasta), and should not be compressed.')
+                             ' Genomes can be in FASTA or FASTQ format. FASTA-formatted files should be '
+                             'uncompressed, FASTQ-formatted files can be gzip-compressed or uncompressed.')
     parser.add_argument('-e', '--exclusion',
                         type=str,
                         required=True,
                         help='Path to folder containing exclusion genome(s) - those you do not want signature'
-                             ' sequences for. Genomes must be in FASTA format (.fasta) and should not be compressed.')
+                             ' sequences for. Genomes can be in FASTA or FASTQ format. FASTA-formatted files should be '
+                             'uncompressed, FASTQ-formatted files can be gzip-compressed or uncompressed.')
     parser.add_argument('-o', '--output_folder',
                         type=str,
                         required=True,
@@ -341,6 +432,10 @@ if __name__ == '__main__':
                         default=False,
                         action='store_true',
                         help='Enable to filter out inclusion kmers that have close relatives in exclusion kmers.')
+    parser.add_argument('-k', '--keep_tmpfiles',
+                        default=False,
+                        action='store_true',
+                        help='If enabled, will not clean up a bunch of (fairly) useless files at the end of a run.')
     args = parser.parse_args()
     if not os.path.isdir(args.output_folder):
         os.makedirs(args.output_folder)
