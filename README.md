@@ -7,7 +7,10 @@ SigSeekr is now new and improved - it uses kmers to find sequences in a set of i
 
 ### Installation
 
-Just clone this repository - you'll need the `SigSeekr.py` script.
+Installable via pip. It's recommended that you create a virtual environment and then:
+`pip install sigseekr`. This will allow you to use the SigSeekr script from anywhere on your system by typing `sigseekr.py`.
+
+Alternatively, you can clone this repository to get the code.
 
 ### External Dependencies
 
@@ -20,7 +23,8 @@ To run SigSeekr, you will need to have the following external programs installed
  
 ### Python Package Dependencies
 
-Included in requirements.txt - to install, use pip: `pip install -r requirements.txt`
+If you installed via pip, these should have been taken care of automatically.
+If you cloned the repository, the package requirements are included in requirements.txt - to install, use pip: `pip install -r requirements.txt`. 
 
 ### Usage
 
@@ -42,7 +46,7 @@ If you specified the `-pcr` option to try to find kmers suitable for use as PCR 
 
 
 ```
-usage: SigSeekr.py [-h] -i INCLUSION -e EXCLUSION -o OUTPUT_FOLDER
+usage: sigseekr.py [-h] -i INCLUSION -e EXCLUSION -o OUTPUT_FOLDER
                    [-t THREADS] [-pcr] [-k]
 
 optional arguments:
