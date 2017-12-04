@@ -3,12 +3,12 @@
 from setuptools import setup, find_packages
 
 setup(
-    name="confindr",
-    version="0.2.0",
+    name="sigseekr",
+    version="0.1.1",
     packages=find_packages(),
-    scripts=['confindr/confindr.py'],
+    scripts=['sigseekr/sigseekr.py'],
     author="Andrew Low",
     author_email="andrew.low@inspection.gc.ca",
-    url="https://github.com/lowandrew/ConFindr",
+    url="https://github.com/lowandrew/SigSeekr",
     install_requires=['biopython', 'OLCTools', 'pysam', 'pytest']
 )
