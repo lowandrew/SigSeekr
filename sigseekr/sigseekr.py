@@ -246,7 +246,7 @@ def mask_fasta(input_fasta, output_fasta, bedfile):
         end = x[-2]
         start = x[-3]
         name = ' '.join(x[:-3])
-        if coverage == '0':
+        if int(coverage) < 31:
             if name in to_mask:
                 to_mask[name].append(start + ':' + end)
             else:
@@ -275,7 +275,8 @@ def generate_bedfile(ref_fasta, kmers, output_bedfile, tmpdir='bedgentmp', threa
     if not os.path.isdir(tmpdir):
         os.makedirs(tmpdir)
     # First, need to generate a bam file - align the kmers to a reference fasta genome.
-    bbtools.bbmap(ref_fasta, kmers, os.path.join(tmpdir, 'out.bam'), threads=threads)
+    bbtools.bbmap(ref_fasta, kmers, os.path.join(tmpdir, 'out.bam'), threads=threads, ambig='best',
+                  perfectmode='true')
     # Once the bam file is generated, turn it into a sorted bamfile so that bedtools can work with it.
     cmd = 'samtools sort {bamfile} -o {sorted_bamfile}'.format(bamfile=os.path.join(tmpdir, 'out.bam'),
                                                                sorted_bamfile=os.path.join(tmpdir, 'out_sorted.bam'))
