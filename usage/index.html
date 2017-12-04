@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Usage - SigSeekr</title>
+  
+
+  <link rel="shortcut icon" href="../img/favicon.ico">
+
+  
+  <link href='https://fonts.googleapis.com/css?family=Lato:400,700|Roboto+Slab:400,700|Inconsolata:400,700' rel='stylesheet' type='text/css'>
+
+  <link rel="stylesheet" href="../css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../css/theme_extra.css" type="text/css" />
+  <link rel="stylesheet" href="../css/highlight.css">
+
+  
+  <script>
+    // Current page data
+    var mkdocs_page_name = "Usage";
+  </script>
+  
+  <script src="../js/jquery-2.1.1.min.js"></script>
+  <script src="../js/modernizr-2.8.3.min.js"></script>
+  <script type="text/javascript" src="../js/highlight.pack.js"></script>
+  <script src="../js/theme.js"></script> 
+
+  
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+      <div class="wy-side-nav-search">
+        <a href=".." class="icon icon-home"> SigSeekr</a>
+        <div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+        <ul class="current">
+          
+            <li>
+    <li class="toctree-l1 ">
+        <a class="" href="..">Home</a>
+        
+    </li>
+<li>
+          
+            <li>
+    <li class="toctree-l1 ">
+        <a class="" href="../installation/">Installation</a>
+        
+    </li>
+<li>
+          
+            <li>
+    <li class="toctree-l1 current">
+        <a class="current" href="./">Usage</a>
+        
+            <ul>
+            
+                <li class="toctree-l3"><a href="#quickstart">Quickstart</a></li>
+                
+                    <li><a class="toctree-l4" href="#detailed-usage">Detailed Usage</a></li>
+                
+            
+            </ul>
+        
+    </li>
+<li>
+          
+        </ul>
+      </div>
+      &nbsp;
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="..">SigSeekr</a>
+      </nav>
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="..">Docs</a> &raquo;</li>
+    
+      
+    
+    <li>Usage</li>
+    <li class="wy-breadcrumbs-aside">
+      
+        
+          <a href="https://github.com/lowandrew/SigSeekr" class="icon icon-github"> Edit on GitHub</a>
+        
+      
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main">
+            <div class="section">
+              
+                <h1 id="quickstart">Quickstart</h1>
+<p>If you want to run SigSeekr right away upon <a href="../installation/">installing</a> it, you can do so with a toy dataset.</p>
+<p>This dataset is hosted on figshare - to get it, run the following command:</p>
+<ul>
+<li><code>wget https://ndownloader.figshare.com/files/9885379 &amp;&amp; tar xf 9885379</code></li>
+</ul>
+<p>You should now have a folder called <code>example-data</code> in your present working directory. To run SigSeekr, enter the following command:</p>
+<ul>
+<li><code>sigseekr.py -i example-data/inclusion/ -e example-data/exclusion/ -o sigseekr_output</code> </li>
+</ul>
+<p>The directory specified with the <code>-o</code> flag can be anything - it's the name of a directory where the output files will be created.
+Upon entering the command, you should see output that is something like this:</p>
+<pre><code class="bash"> [Elapsed Time: 0.00 seconds] Creating inclusion kmer set... 
+ [Elapsed Time: 0.41 seconds] Creating exclusion kmer set... 
+ [Elapsed Time: 0.83 seconds] Subtracting exclusion kmers from inclusion kmers with cutoff 1... 
+ [Elapsed Time: 0.97 seconds] Found kmers unique to inclusion... 
+ [Elapsed Time: 0.97 seconds] Generating contiguous sequences from inclusion kmers... 
+ [Elapsed Time: 4.10 seconds] Removing unnecessary output files... 
+ [Elapsed Time: 4.10 seconds] SigSeekr run complete! 
+</code></pre>
+
+<p>The <code>sigseekr_output</code> folder should have two files in it: <code>inclusion_kmers.fasta</code>, which lists all the kmers that are unique to the inclusion set, and <code>sigseekr_result.fasta</code>, which contains the regions that unique kmers span. In this case, <code>sigseekr_result.fasta</code> should have one unique region. To take a look at it, use the <code>cat</code> command:</p>
+<ul>
+<li><code>cat sigseekr_output/sigseekr_result.fasta</code></li>
+</ul>
+<p>The result that should come out of this is:</p>
+<pre><code class="bash">&gt;contig1_sequence1
+AACAGGCGACAGGCAGCATCACTAGCTACTA
+</code></pre>
+
+<h3 id="detailed-usage">Detailed Usage</h3>
+<p>Detailed usage options can be found by typing <code>sigseekr.py --help</code>, which will give the following output. 
+Further details on each option can be found below.</p>
+<pre><code class="python">usage: sigseekr.py [-h] -i INCLUSION -e EXCLUSION -o OUTPUT_FOLDER
+                   [-t THREADS] [-pcr] [-k] [-p PLASMID_FILTERING] [-l]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -i INCLUSION, --inclusion INCLUSION
+                        Path to folder containing genome(s) you want signature
+                        sequences for. Genomes can be in FASTA or FASTQ
+                        format. FASTA-formatted files should be uncompressed,
+                        FASTQ-formatted files can be gzip-compressed or
+                        uncompressed.
+  -e EXCLUSION, --exclusion EXCLUSION
+                        Path to folder containing exclusion genome(s) - those
+                        you do not want signature sequences for. Genomes can
+                        be in FASTA or FASTQ format. FASTA-formatted files
+                        should be uncompressed, FASTQ-formatted files can be
+                        gzip-compressed or uncompressed.
+  -o OUTPUT_FOLDER, --output_folder OUTPUT_FOLDER
+                        Path to folder where you want to store output files.
+                        Folder will be created if it does not exist.
+  -t THREADS, --threads THREADS
+                        Number of threads to run analysis on. Defaults to
+                        number of cores on your machine.
+  -pcr, --pcr           Enable to filter out inclusion kmers that have close
+                        relatives in exclusion kmers.
+  -k, --keep_tmpfiles   If enabled, will not clean up a bunch of (fairly)
+                        useless files at the end of a run.
+  -p PLASMID_FILTERING, --plasmid_filtering PLASMID_FILTERING
+                        To ensure unique sequences are not plasmid-borne, a
+                        FASTA-formatted database can be provided with this
+                        argument. Any unique kmers that are in the plasmid
+                        database will be filtered out.
+  -l, --low_memory      Activate this flag to cause plasmid filtering to use
+                        substantially less RAM (and go faster), at the cost of
+                        some sensitivity.
+
+</code></pre>
+
+<p>Additional info:</p>
+<ul>
+<li><code>-i, --inclusion</code>: Not too much to say about this - it's the folder where you'll want to place any genomes that you want signature sequences for. If you place more than one genome here, 
+SigSeekr will look for kmers common to all input genomes and develop a signature sequence based on those. These genomes can be FASTA-formatted assemblies (recommended) in which case they must be 
+uncompressed, or raw FASTQ reads, in which case they can be either uncompressed or gzip-compressed.</li>
+<li><code>-e, --exclusion</code>: The collection of genomes you <em>do not</em> want your signature sequences to match to. Same file format rules as the inclusion folder. </li>
+<li><code>-o, --output_folder</code>: The folder where output files will be stored. Created if it doesn't exist. Recommended that you create a new folder for each run, as outputs will be overwritten from previous runs.</li>
+<li><code>-t, --threads</code>: Number of threads to run SigSeekr with. Recommended to leave at the default setting of all cores on your machine, as most programs in the SigSeekr pipeline scale very well with additional threads.</li>
+<li><code>-pcr</code>: Enable to create two additional output files. The first, <code>pcr_kmers.fasta</code>, contains inclusion kmers that <em>should</em> be at least 3 SNPs away from any exclusion kmers, making them good potential candidates for PCR primers. The second, <code>amplicons.csv</code>, gives a list of all possible pairings of primer candidates, as well as the size of the amplicon that those two primer candidates would create.</li>
+<li><code>-k, --keep_tmpfiles</code>: By default, a number of fairly boring (but sometimes quite large) files are deleted at the end of a run to save on disk space. Specifying this option will keep them around if you want to inspect them more closely. Files that will be kept around with this option specified include the KMC inclusion and exclusion, and unique to inclusion databases (<code>inclusion_db</code>, <code>exclusion_db</code>, and <code>unique_to_inclusion_db</code>), FASTA files of all inclusion kmers (<code>inclusion_kmers.fasta</code>), and a bedfile showing coverage of inclusion kmers across one of the inclusion genomes specified (<code>regions_to_mask.bed</code>).</li>
+<li><code>-p, --plasmid_filtering</code>: If you're looking for sequences unique to a genome, you probably don't want them on mobile elements that might not be there the next time you look. To help alleviate this potential problem, you can specify the path to a FASTA-formatted database with this option. Any inclusion kmers found in the database will be excluded from further analysis. A relatively extensive plasmid database (~9000 RefSeq plasmids spanning all of Bacteria), can be downloaded with the following command: <code>https://ndownloader.figshare.com/files/9827323 &amp;&amp; tar xf 9827323</code>.
+This will create a folder called <code>databases</code> in your present working directory. Within the folder, <code>plasmid_db.fasta</code> is the plasmid database.</li>
+<li><code>-l, --low_memory</code>: Using the above-mentioned plasmid database can be memory-intensive. To help alleviate that, add this flag, which will use less memory and go faster, at the cost of some sensitivity.</li>
+</ul>
+              
+            </div>
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+      
+        <a href="../installation/" class="btn btn-neutral" title="Installation"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+    
+  </div>
+
+  Built with <a href="http://www.mkdocs.org">MkDocs</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+	  
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+<div class="rst-versions" role="note" style="cursor: pointer">
+    <span class="rst-current-version" data-toggle="rst-current-version">
+      
+          <a class="icon icon-github" style="float: left; color: #fcfcfc"> GitHub</a>
+      
+      
+        <span><a href="../installation/" style="color: #fcfcfc;">&laquo; Previous</a></span>
+      
+      
+    </span>
+</div>
+
+</body>
+</html>
