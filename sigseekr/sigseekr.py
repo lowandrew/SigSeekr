@@ -378,7 +378,7 @@ def find_primer_distances(primer_file, reference_file, output_dir, tmpdir='prime
                                                                                            amplicon_size=str(amplicon_size))
     with open(os.path.join(output_dir, 'amplicons.csv'), 'a+') as outfile:
         outfile.write(outstr)
-    shutil.rmtree(tmpdir)
+    shutil.rmtree(tmpdir, ignore_errors=True)
 
 
 def main(args):
@@ -482,7 +482,9 @@ def main(args):
             ref_fasta = glob.glob(os.path.join(args.inclusion, '*.f*a'))[0]
             find_primer_distances(os.path.join(args.output_folder, 'pcr_kmers.fasta'), ref_fasta, args.output_folder,
                                   tmpdir=os.path.join(args.output_folder, 'pcrtmp'), threads=str(args.threads),
-                                  logfile=log)
+                                  logfile=log,
+                                  min_amplicon_size=args.minimum_amplicon_size,
+                                  max_amplicon_size=args.maximum_amplicon_size)
     if not args.keep_tmpfiles:
         printtime('Removing unnecessary output files...', start)
         to_remove = glob.glob(os.path.join(args.output_folder, 'exclusion*'))
@@ -542,6 +544,14 @@ if __name__ == '__main__':
                         action='store_true',
                         help='Activate this flag to cause plasmid filtering to use substantially less RAM (and '
                              'go faster), at the cost of some sensitivity.')
+    parser.add_argument('-min', '--minimum_amplicon_size',
+                        default=200,
+                        type=int,
+                        help='Minimum size for potential amplicons when using the --pcr option. Default is 200.')
+    parser.add_argument('-max', '--maximum_amplicon_size',
+                        default=1000,
+                        type=int,
+                        help='Maximum size for potential amplicons when using the --pcr option. Default is 1000.')
     args = parser.parse_args()
     # Check that dependencies are present, warn users if they aren't.
     dependencies = ['bbmap.sh', 'bbduk.sh', 'kmc', 'bedtools', 'samtools', 'kmc_tools']
