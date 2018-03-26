@@ -4,7 +4,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="sigseekr",
-    version="0.1.1",
+    version="0.1.3",
     packages=find_packages(),
     scripts=['sigseekr/sigseekr.py'],
     author="Andrew Low",

@@ -84,6 +84,7 @@ def make_inclusion_kmerdb(inclusion_folder, output_db, forward_id='_R1', reverse
     :param tmpdir: Directory where temporary databases and whatnot will be stored. Deleted upon method completion.
     :param maxmem: Maximum amount of memory to use when kmerizing, in GB.
     :param threads: Number of threads to use. Counterintuitively, should be a string.
+    :param logfile: Text file you want commands used, as well as stdout and stderr from called programs, to be logged to
     """
     # Make the tmpdir, if it doesn't exist already.
     if not os.path.isdir(tmpdir):
@@ -152,6 +153,7 @@ def make_exclusion_kmerdb(exclusion_folder, output_db, forward_id='_R1', reverse
     :param tmpdir: Directory where temporary databases and whatnot will be stored. Deleted upon method completion.
     :param maxmem: Maximum amount of memory to use when kmerizing, in GB.
     :param threads: Number of threads to use. Counterintuitively, should be a string.
+    :param logfile: Text file you want commands used, as well as stdout and stderr from called programs, to be logged to
     """
     # Make the tmpdir, if it doesn't exist already.
     if not os.path.isdir(tmpdir):
@@ -279,7 +281,7 @@ def mask_fasta(input_fasta, output_fasta, bedfile):
         end = x[-2]
         start = x[-3]
         name = ' '.join(x[:-3])
-        if int(coverage) < 31:
+        if int(coverage) == 0:
             if name in to_mask:
                 to_mask[name].append(start + ':' + end)
             else:
@@ -332,7 +334,8 @@ def generate_bedfile(ref_fasta, kmers, output_bedfile, tmpdir='bedgentmp', threa
     shutil.rmtree(tmpdir)
 
 
-def find_primer_distances(primer_file, reference_file, output_dir, tmpdir='primertmp', threads='2', logfile=None):
+def find_primer_distances(primer_file, reference_file, output_dir, tmpdir='primertmp', threads='2', logfile=None,
+                          min_amplicon_size=200, max_amplicon_size=1000):
     """
     Given a FASTA-formatted file with kmers that might be acceptable to use as primers, will create a CSV file that
     shows the number of base pairs between each set of primers.
@@ -359,7 +362,8 @@ def find_primer_distances(primer_file, reference_file, output_dir, tmpdir='prime
                                      match.reference_end, ref_name))
     # Now iterate through the list of pcr info to find out amplicon distances.
     with open(os.path.join(output_dir, 'amplicons.csv'), 'w') as f:
-        f.write('Sequence1,Sequnce2,Amplicon_Size\n')
+        f.write('Sequence1,Sequence2,Amplicon_Size\n')
+    outstr = ''  # Do the whole file write at one time with this string, otherwise this takes way too long.
     for primer_one in pcr_info_list:
         for primer_two in pcr_info_list:
             # To get amplicon distances need to be on same contig and not be the exact same.
@@ -368,10 +372,12 @@ def find_primer_distances(primer_file, reference_file, output_dir, tmpdir='prime
                     amplicon_size = int(primer_one.end_position) - int(primer_two.start_position)
                 else:
                     amplicon_size = int(primer_two.end_position) - int(primer_one.start_position)
-                with open(os.path.join(output_dir, 'amplicons.csv'), 'a+') as f:
-                    f.write('{primer_one_seq},{primer_two_seq},{amplicon_size}\n'.format(primer_one_seq=primer_one.seq,
-                                                                                         primer_two_seq=primer_two.seq,
-                                                                                         amplicon_size=str(amplicon_size)))
+                if min_amplicon_size < amplicon_size < max_amplicon_size:
+                    outstr += '{primer_one_seq},{primer_two_seq},{amplicon_size}\n'.format(primer_one_seq=primer_one.seq,
+                                                                                           primer_two_seq=primer_two.seq,
+                                                                                           amplicon_size=str(amplicon_size))
+    with open(os.path.join(output_dir, 'amplicons.csv'), 'a+') as outfile:
+        outfile.write(outstr)
     shutil.rmtree(tmpdir)
 
 
