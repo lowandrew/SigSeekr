@@ -14,12 +14,19 @@ def test_replace_by_index():
     assert seq == 'ANNNNACGTAACCTGTACCATGTACACAGGT'
 
 
-def test_n_removal():
+def test_n_removal_short():
     remove_n('tests/n_removal.fasta', 'tests/n_result.fasta')
     with open('tests/n_result.fasta') as f:
         lines = f.readlines()
-    assert lines == ['>contig1_sequence1\n', 'ATGCATGCA\n', '>contig1_sequence2\n', 'TGCATCGA\n']
+    assert lines == []
     os.remove('tests/n_result.fasta')
+
+
+def test_n_removal_long():
+    remove_n('tests/n_removal_long.fasta', 'tests/n_result.fasta')
+    with open('tests/n_result.fasta') as f:
+        lines = f.readlines()
+    assert lines == ['>contig1_sequence1\n', 'TGCATCGAATATGCATGCAATGCATGCAATGCATGCAGCATGCAAAAAAAAAA\n']
 
 
 def test_1_fastqs():
