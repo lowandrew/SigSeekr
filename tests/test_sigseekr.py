@@ -27,6 +27,7 @@ def test_n_removal_long():
     with open('tests/n_result.fasta') as f:
         lines = f.readlines()
     assert lines == ['>contig1_sequence1\n', 'TGCATCGAATATGCATGCAATGCATGCAATGCATGCAGCATGCAAAAAAAAAA\n']
+    os.remove('tests/n_result.fasta')
 
 
 def test_1_fastqs():

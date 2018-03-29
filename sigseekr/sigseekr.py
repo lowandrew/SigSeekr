@@ -16,6 +16,10 @@ from biotools import bbtools
 from accessoryFunctions.accessoryFunctions import printtime
 from accessoryFunctions.accessoryFunctions import dependency_check
 
+# General TODO: Make kmer size a user-specifiable parameter, and also investigate kmer size effect
+# on how well SigSeekr works. Neptune paper might explain why it uses different kmer sizes for different things,
+# so probably give that a read.
+
 
 def write_to_logfile(logfile, out, err, cmd):
     with open(logfile, 'a+') as outfile:
@@ -72,7 +76,7 @@ def find_unpaired_reads(fastq_directory, forward_id='_R1', reverse_id='_R2'):
 
 
 def make_inclusion_kmerdb(inclusion_folder, output_db, forward_id='_R1', reverse_id='_R2', tmpdir='tmpinclusion',
-                          maxmem='12', threads='2', logfile=None):
+                          maxmem='12', threads='2', logfile=None, k=31):
     """
     Given an folder containing some genomes, finds kmers that are common to all genomes, and writes them to output_db.
     Genomes can be in fasta (uncompressed only? check this) or fastq (gzip compressed or uncompressed) formats.
@@ -85,6 +89,7 @@ def make_inclusion_kmerdb(inclusion_folder, output_db, forward_id='_R1', reverse
     :param maxmem: Maximum amount of memory to use when kmerizing, in GB.
     :param threads: Number of threads to use. Counterintuitively, should be a string.
     :param logfile: Text file you want commands used, as well as stdout and stderr from called programs, to be logged to
+    :param k: kmer size to use for kmc kmer generation
     """
     # Make the tmpdir, if it doesn't exist already.
     if not os.path.isdir(tmpdir):
@@ -97,7 +102,8 @@ def make_inclusion_kmerdb(inclusion_folder, output_db, forward_id='_R1', reverse
     i = 1
     for fasta in fastas:
         out, err, cmd = kmc.kmc(fasta, os.path.join(tmpdir, 'database{}'.format(str(i))), fm='', m=maxmem, t=threads,
-                                tmpdir=os.path.join(tmpdir, str(time.time()).split('.')[0]), returncmd=True)
+                                tmpdir=os.path.join(tmpdir, str(time.time()).split('.')[0]), returncmd=True,
+                                k=k)
         if logfile:
             write_to_logfile(logfile, out, err, cmd)
         i += 1
@@ -105,7 +111,8 @@ def make_inclusion_kmerdb(inclusion_folder, output_db, forward_id='_R1', reverse
         out, err, cmd = kmc.kmc(forward_in=pair[0], reverse_in=pair[1], database_name=os.path.join(tmpdir, 'database{}'.format(str(i))),
                                 min_occurrences=2,  # For fastqs, make min_occurrence two to hopefully filter out sequencing errors.
                                 m=maxmem, t=threads, tmpdir=os.path.join(tmpdir, str(time.time()).split('.')[0]),
-                                returncmd=True)
+                                returncmd=True,
+                                k=k)
         if logfile:
             write_to_logfile(logfile, out, err, cmd)
         i += 1
@@ -113,7 +120,8 @@ def make_inclusion_kmerdb(inclusion_folder, output_db, forward_id='_R1', reverse
         out, err, cmd = kmc.kmc(forward_in=fastq, database_name=os.path.join(tmpdir, 'database{}'.format(str(i))),
                                 min_occurrences=2,  # For fastqs, make min_occurrence two to hopefully filter out sequencing errors.
                                 m=maxmem, t=threads, tmpdir=os.path.join(tmpdir, str(time.time()).split('.')[0]),
-                                returncmd=True)
+                                returncmd=True,
+                                k=k)
         if logfile:
             write_to_logfile(logfile, out, err, cmd)
         i += 1
@@ -141,7 +149,7 @@ def make_inclusion_kmerdb(inclusion_folder, output_db, forward_id='_R1', reverse
 
 
 def make_exclusion_kmerdb(exclusion_folder, output_db, forward_id='_R1', reverse_id='_R2', tmpdir='tmpexclusion',
-                          maxmem='12', threads='2', logfile=None):
+                          maxmem='12', threads='2', logfile=None, k=31):
     """
     Given an folder containing some genomes, finds all kmers that are present in genomes, and writes them to output_db.
     Genomes can be in fasta (uncompressed only? check this) or fastq (gzip compressed or uncompressed) formats.
@@ -154,6 +162,7 @@ def make_exclusion_kmerdb(exclusion_folder, output_db, forward_id='_R1', reverse
     :param maxmem: Maximum amount of memory to use when kmerizing, in GB.
     :param threads: Number of threads to use. Counterintuitively, should be a string.
     :param logfile: Text file you want commands used, as well as stdout and stderr from called programs, to be logged to
+    :param k: Kmer size to use.
     """
     # Make the tmpdir, if it doesn't exist already.
     if not os.path.isdir(tmpdir):
@@ -166,14 +175,15 @@ def make_exclusion_kmerdb(exclusion_folder, output_db, forward_id='_R1', reverse
     i = 1
     for fasta in fastas:
         out, err, cmd = kmc.kmc(fasta, os.path.join(tmpdir, 'database{}'.format(str(i))), fm='', m=maxmem,
-                                tmpdir=os.path.join(tmpdir, str(time.time()).split('.')[0]), returncmd=True)
+                                tmpdir=os.path.join(tmpdir, str(time.time()).split('.')[0]), returncmd=True, k=k)
         if logfile:
             write_to_logfile(logfile, out, err, cmd)
         i += 1
     for pair in paired_fastqs:
         out, err, cmd = kmc.kmc(forward_in=pair[0], reverse_in=pair[1], database_name=os.path.join(tmpdir, 'database{}'.format(str(i))),
                                 min_occurrences=2, m=maxmem, t=threads,
-                                tmpdir=os.path.join(tmpdir, str(time.time()).split('.')[0]), returncmd=True)
+                                tmpdir=os.path.join(tmpdir, str(time.time()).split('.')[0]),
+                                returncmd=True, k=k)
         if logfile:
             write_to_logfile(logfile, out, err, cmd)
         i += 1
@@ -181,7 +191,8 @@ def make_exclusion_kmerdb(exclusion_folder, output_db, forward_id='_R1', reverse
         out, err, cmd = kmc.kmc(forward_in=fastq, database_name=os.path.join(tmpdir, 'database{}'.format(str(i))),
                                 min_occurrences=2, m=maxmem, t=threads,
                                 tmpdir=os.path.join(tmpdir, str(time.time()).split('.')[0]),
-                                returncmd=True)
+                                returncmd=True,
+                                k=k)
         if logfile:
             write_to_logfile(logfile, out, err, cmd)
         i += 1
@@ -225,11 +236,12 @@ def kmers_to_fasta(kmer_file, output_fasta):
             i += 1
 
 
-def remove_n(input_fasta, output_fasta):
+def remove_n(input_fasta, output_fasta, k=31):
     """
     Given a fasta-formatted file with stretches of Ns in it, will give a fasta-formatted file as output that has
     the original fasta file split into contigs, with a split on each string of Ns.
     :param input_fasta: Path to input fasta.
+    :param k: kmer size used to find unique kmers. Unique sequence need to be at least this long.
     :param output_fasta: Path to output fasta. Should NOT be the same as input fasta.
     """
     contigs = SeqIO.parse(input_fasta, 'fasta')
@@ -240,7 +252,7 @@ def remove_n(input_fasta, output_fasta):
         with open(output_fasta, 'a+') as outfile:
             i = 1
             for unique in uniques:
-                if unique != '' and len(unique) >= 31:
+                if unique != '' and len(unique) >= k:
                     outfile.write('>contig{}_sequence{}\n'.format(str(j), str(i)))
                     unique = textwrap.fill(unique)
                     outfile.write(unique + '\n')
@@ -263,13 +275,14 @@ def replace_by_index(stretch, seq):
     return seq
 
 
-def mask_fasta(input_fasta, output_fasta, bedfile):
+def mask_fasta(input_fasta, output_fasta, bedfile, k=31):
     """
     Given a bedfile specifying coverage depths, and an input fasta file corresponding to that bedfile, will create
     a new fasta file with 0-coverage regions replace with Ns.
     :param input_fasta: Path to input fasta file.
     :param output_fasta: Path to output fasta file. Should NOT be the same as input fasta file.
     :param bedfile: Bedfile containing coverage depth info.
+    :param k: kmer size used when generating kmers unique to inclusion with kmc.
     """
     to_mask = dict()
     with open(bedfile) as bed:
@@ -281,7 +294,9 @@ def mask_fasta(input_fasta, output_fasta, bedfile):
         end = x[-2]
         start = x[-3]
         name = ' '.join(x[:-3])
-        if int(coverage) < 31:  # I changed this at some point recently - seems to have made me lose a ton of specificity.
+        # This needs to be at least k, otherwise you end up with a stretch of length (k * 2) + 1 which matches
+        # exclusion sequence perfectly, except for a SNV in the middle.
+        if int(coverage) < k:
             if name in to_mask:
                 to_mask[name].append(start + ':' + end)
             else:
@@ -427,11 +442,11 @@ def main(args):
     printtime('Creating inclusion kmer set...', start)
     make_inclusion_kmerdb(args.inclusion, os.path.join(args.output_folder, 'inclusion_db'),
                           tmpdir=os.path.join(args.output_folder, 'inclusiontmp'), threads=str(args.threads),
-                          logfile=log)
+                          logfile=log, k=args.kmer_size)
     printtime('Creating exclusion kmer set...', start)
     make_exclusion_kmerdb(args.exclusion, os.path.join(args.output_folder, 'exclusion_db'),
                           tmpdir=os.path.join(args.output_folder, 'exclusiontmp'), threads=str(args.threads),
-                          logfile=log)
+                          logfile=log, k=args.kmer_size)
     # Now start trying to subtract kmer sets, see how it goes.
     exclusion_cutoff = 1
     while exclusion_cutoff < 10:
@@ -463,9 +478,11 @@ def main(args):
                                  tmpdir=os.path.join(args.output_folder, 'bedtmp'), threads=str(args.threads),
                                  logfile=log)
                 mask_fasta(ref_fasta, os.path.join(args.output_folder, 'inclusion_sequence.fasta'),
-                           os.path.join(args.output_folder, 'regions_to_mask.bed'))
+                           os.path.join(args.output_folder, 'regions_to_mask.bed'),
+                           k=args.kmer_size)
                 remove_n(os.path.join(args.output_folder, 'inclusion_sequence.fasta'),
-                         os.path.join(args.output_folder, 'sigseekr_result.fasta'))
+                         os.path.join(args.output_folder, 'sigseekr_result.fasta'),
+                         k=args.kmer_size)
                 with open(os.path.join(args.output_folder, 'sigseekr_result.fasta')) as f:
                     lines = f.readlines()
                 if lines:  # If we have file output, that means we have contiguous sequences long enough, so don't iterate
@@ -565,6 +582,11 @@ if __name__ == '__main__':
                         required=True,
                         help='Path to folder where you want to store output files. Folder will be created if it '
                              'does not exist.')
+    parser.add_argument('-s', '--kmer_size',
+                        type=int,
+                        default=31,
+                        help='Kmer size used to search for sequences unique to inclusion. Default 31. No idea '
+                             'how changing this affects results. TO BE INVESTIGATED.')
     parser.add_argument('-t', '--threads',
                         type=int,
                         default=num_cpus,
