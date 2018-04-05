@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+from io import StringIO
 import multiprocessing
 import subprocess
 import argparse
@@ -13,10 +14,12 @@ import pysam
 from Bio import SeqIO
 from biotools import kmc
 from biotools import bbtools
+from Bio.Blast import NCBIXML
+from Bio.Blast.Applications import NcbiblastnCommandline
 from accessoryFunctions.accessoryFunctions import printtime
 from accessoryFunctions.accessoryFunctions import dependency_check
 
-# General TODO: Make kmer size a user-specifiable parameter, and also investigate kmer size effect
+# General TODO: Investigate kmer size effect
 # on how well SigSeekr works. Neptune paper might explain why it uses different kmer sizes for different things,
 # so probably give that a read.
 
@@ -134,7 +137,7 @@ def make_inclusion_kmerdb(inclusion_folder, output_db, forward_id='_R1', reverse
         f.write('OUTPUT:\n{} = '.format(output_db))
         for j in range(i - 1):
             if j < (i - 2):
-                f.write('set{}*'.format(str(j + 1)))
+                f.write('set{}*sum'.format(str(j + 1)))
             else:
                 f.write('set{}\n'.format(str(j + 1)))
     cmd = 'kmc_tools complex {}'.format(os.path.join(tmpdir, 'command_file'))
@@ -513,39 +516,89 @@ def main(args):
     # If we want to find PCR primers, try to filter out any inclusion kmers that are close to exclusion kmers.
     if args.pcr:
         printtime('Generating PCR info...', start)
+        # Step 1: Go through the sigseekr_result.fasta file to find all potential amplicons based on user-specified
+        # amplicon length.
+        with open(os.path.join(args.output_folder, 'potential_pcr.fasta'), 'w') as f:
+            seq_id = 1
+            for unique_seq in SeqIO.parse(os.path.join(args.output_folder, 'sigseekr_result.fasta'), 'fasta'):
+                if len(unique_seq) >= args.amplicon_size:
+                    outstr = ''
+                    # Split sequence into a bunch of chunks of specified amplicon size, write those chunks to file.
+                    i = 0
+                    while i < len(unique_seq):
+                        if str(unique_seq.seq[i:args.amplicon_size]) != '':
+                            outstr += '>sequence' + str(seq_id) + '\n'
+                            outstr += str(unique_seq.seq[i:args.amplicon_size]) + '\n'
+                            seq_id += 1
+                        i += args.amplicon_size
+                    f.write(outstr)
+        # Step 2: Create Blast DB of all exclusion genomes.
+        # TODO: Move this to not cat if it makes it past testing.
+        cmd = 'cat {fastas} > {combined_fasta}'.format(fastas=os.path.join(args.exclusion, '*.f*a'),
+                                                       combined_fasta=os.path.join(args.output_folder, 'exclusion_combined.fasta'))
+        os.system(cmd)
+        cmd = 'makeblastdb -in {combined_fasta} -dbtype nucl'.format(combined_fasta=os.path.join(args.output_folder, 'exclusion_combined.fasta'))
+        os.system(cmd)
+        # Step 3: Blast each potential amplicon against Blast DB - keep only those that do not have any matches (for
+        # now - may need to adjust this to keeping some if they have a certain e-value/length/percent id).
+        outstr = ''
+        sequence_id = 1
+        for potential_sequence in SeqIO.parse(os.path.join(args.output_folder, 'potential_pcr.fasta'), 'fasta'):
+            blastn = NcbiblastnCommandline(db=os.path.join(args.output_folder, 'exclusion_combined.fasta'),
+                                           task='blastn',
+                                           outfmt=5)
+            stdout, stderr = blastn(stdin=str(potential_sequence.seq))
+            top_hit_length = 200  # TODO: Maybe change logic so that no hit can be longer than cutoff instead of
+            # only top scoring hit. Attempt tomorrow.
+            for record in NCBIXML.parse(StringIO(stdout)):
+                try:
+                    top_hit_length = record.alignments[0].hsps[0].align_length
+                except IndexError:  # Should happen if we don't have any hits at all.
+                    top_hit_length = 0
+                # print(len(record.alignments))
+            if top_hit_length < 18:
+                outstr += '>sequence' + str(sequence_id) + '\n'
+                outstr += str(potential_sequence.seq) + '\n'
+                sequence_id += 1
+        with open(os.path.join(args.output_folder, 'pcr_confirmed.fasta'), 'w') as f:
+            f.write(outstr)
+        # Step 4: Make sure potential amplicon is present in all of the inclusion genomes.
+        # TODO
+        # Step 5: Report to user.
+
         # First step is to create fasta of exclusion kmers.
-        out, err, cmd = kmc.dump(os.path.join(args.output_folder, 'exclusion_db'),
-                                 os.path.join(args.output_folder, 'exclusion_kmers.txt'),
-                                 returncmd=True)
-        write_to_logfile(log, out, err, cmd)
-        kmers_to_fasta(os.path.join(args.output_folder, 'exclusion_kmers.txt'),
-                       os.path.join(args.output_folder, 'exclusion_kmers.fasta'))
+        # out, err, cmd = kmc.dump(os.path.join(args.output_folder, 'exclusion_db'),
+        #                          os.path.join(args.output_folder, 'exclusion_kmers.txt'),
+        #                          returncmd=True)
+        # write_to_logfile(log, out, err, cmd)
+        # kmers_to_fasta(os.path.join(args.output_folder, 'exclusion_kmers.txt'),
+        #                os.path.join(args.output_folder, 'exclusion_kmers.fasta'))
         # Now use bbduk with small kmer size (k=19) to filter out inclusion kmers that have exclusions that are close.
         # Also have this work with low memory options.
-        if args.low_memory:
-            out, err, cmd = bbtools.bbduk_filter(reference=os.path.join(args.output_folder, 'exclusion_kmers.fasta'),
-                                                 forward_in=os.path.join(args.output_folder, 'inclusion_kmers.fasta'),
-                                                 forward_out=os.path.join(args.output_folder, 'pcr_kmers.fasta'),
-                                                 k='19', threads=str(args.threads), rskip=6,
-                                                 returncmd=True)
-            write_to_logfile(log, out, err, cmd)
-        else:
-            out, err, cmd = bbtools.bbduk_filter(reference=os.path.join(args.output_folder, 'exclusion_kmers.fasta'),
-                                                 forward_in=os.path.join(args.output_folder, 'inclusion_kmers.fasta'),
-                                                 forward_out=os.path.join(args.output_folder, 'pcr_kmers.fasta'),
-                                                 k='19', threads=str(args.threads),
-                                                 returncmd=True)
-            write_to_logfile(log, out, err, cmd)
+        # if args.low_memory:
+        #     out, err, cmd = bbtools.bbduk_filter(reference=os.path.join(args.output_folder, 'exclusion_kmers.fasta'),
+        #                                          forward_in=os.path.join(args.output_folder, 'inclusion_kmers.fasta'),
+        #                                          forward_out=os.path.join(args.output_folder, 'pcr_kmers.fasta'),
+        #                                          k='19', threads=str(args.threads), rskip=6,
+        #                                          returncmd=True)
+        #     write_to_logfile(log, out, err, cmd)
+        # else:
+        #     out, err, cmd = bbtools.bbduk_filter(reference=os.path.join(args.output_folder, 'exclusion_kmers.fasta'),
+        #                                          forward_in=os.path.join(args.output_folder, 'inclusion_kmers.fasta'),
+        #                                          forward_out=os.path.join(args.output_folder, 'pcr_kmers.fasta'),
+        #                                          k='19', threads=str(args.threads),
+        #                                          returncmd=True)
+        #     write_to_logfile(log, out, err, cmd)
         # Next step: Get distances between potential primers by mapping back to a reference (if it exists) and getting
         # distances.
-        if len(glob.glob(os.path.join(args.inclusion, '*.f*a'))) > 0:
-            ref_fasta = glob.glob(os.path.join(args.inclusion, '*.f*a'))[0]
-            find_primer_distances(os.path.join(args.output_folder, 'pcr_kmers.fasta'), ref_fasta, args.output_folder,
-                                  tmpdir=os.path.join(args.output_folder, 'pcrtmp'), threads=str(args.threads),
-                                  logfile=log,
-                                  min_amplicon_size=args.minimum_amplicon_size,
-                                  max_amplicon_size=args.maximum_amplicon_size,
-                                  inclusion_dir=args.inclusion)
+        # if len(glob.glob(os.path.join(args.inclusion, '*.f*a'))) > 0:
+        #     ref_fasta = glob.glob(os.path.join(args.inclusion, '*.f*a'))[0]
+        #     find_primer_distances(os.path.join(args.output_folder, 'pcr_kmers.fasta'), ref_fasta, args.output_folder,
+        #                           tmpdir=os.path.join(args.output_folder, 'pcrtmp'), threads=str(args.threads),
+        #                           logfile=log,
+        #                           min_amplicon_size=args.minimum_amplicon_size,
+        #                           max_amplicon_size=args.maximum_amplicon_size,
+        #                           inclusion_dir=args.inclusion)
     if not args.keep_tmpfiles:
         printtime('Removing unnecessary output files...', start)
         to_remove = glob.glob(os.path.join(args.output_folder, 'exclusion*'))
@@ -610,14 +663,10 @@ if __name__ == '__main__':
                         action='store_true',
                         help='Activate this flag to cause plasmid filtering to use substantially less RAM (and '
                              'go faster), at the cost of some sensitivity.')
-    parser.add_argument('-min', '--minimum_amplicon_size',
+    parser.add_argument('-a', '--amplicon_size',
                         default=200,
                         type=int,
-                        help='Minimum size for potential amplicons when using the --pcr option. Default is 200.')
-    parser.add_argument('-max', '--maximum_amplicon_size',
-                        default=1000,
-                        type=int,
-                        help='Maximum size for potential amplicons when using the --pcr option. Default is 1000.')
+                        help='Desired size for PCR amplicons. Default 200.')
     args = parser.parse_args()
     # Check that dependencies are present, warn users if they aren't.
     dependencies = ['bbmap.sh', 'bbduk.sh', 'kmc', 'bedtools', 'samtools', 'kmc_tools']
