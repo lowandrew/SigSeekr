@@ -516,6 +516,9 @@ def main(args):
     # If we want to find PCR primers, try to filter out any inclusion kmers that are close to exclusion kmers.
     if args.pcr:
         printtime('Generating PCR info...', start)
+        # TODO: Move this into one/several methods instead of having a giant block of code at this level.
+        # Also, clean up the files that this generates.
+
         # Step 1: Go through the sigseekr_result.fasta file to find all potential amplicons based on user-specified
         # amplicon length.
         with open(os.path.join(args.output_folder, 'potential_pcr.fasta'), 'w') as f:
@@ -548,57 +551,82 @@ def main(args):
                                            task='blastn',
                                            outfmt=5)
             stdout, stderr = blastn(stdin=str(potential_sequence.seq))
-            top_hit_length = 200  # TODO: Maybe change logic so that no hit can be longer than cutoff instead of
-            # only top scoring hit. Attempt tomorrow.
-            for record in NCBIXML.parse(StringIO(stdout)):
+            top_hit_length = 999999  # Start this at ridiculouly high value
+
+            # The hit location dict will store the locations of every blast hit to each contig.
+            # Each contig is an entry into the dict, with each entry being a list of locations.
+            # We'll later try every combination in each list to make sure no two matches are too close together.
+            hit_location_dict = dict()
+            records = NCBIXML.parse(StringIO(stdout))
+            for record in records:
                 try:
                     top_hit_length = record.alignments[0].hsps[0].align_length
                 except IndexError:  # Should happen if we don't have any hits at all.
                     top_hit_length = 0
-                # print(len(record.alignments))
-            if top_hit_length < 18:
+                for alignment in record.alignments:
+                    for hsp in alignment.hsps:
+                        if alignment.title in hit_location_dict:
+                            hit_location_dict[alignment.title].append(hsp.sbjct_start)
+                        else:
+                            hit_location_dict[alignment.title] = [hsp.sbjct_start]
+
+            # Set up a flag that we'll turn to true if we find any sets of matches that are too close together.
+            matches_too_close = False
+            for contig in hit_location_dict:
+                for i in range(len(hit_location_dict[contig])):
+                    for j in range(len(hit_location_dict[contig])):
+                        if i != j:
+                            # Make sure no two hits within 5000bp of each other.
+                            if abs(hit_location_dict[contig][i] - hit_location_dict[contig][j]) < 5000:
+                                matches_too_close = True
+            # Allow writing to outstr if either we have no hits longer than a roughly two pcr primers (so 40ish bp)
+            # Also can't have any two matches to the same contig within 5000bp of each other.
+            if top_hit_length < 40 and matches_too_close is False:
                 outstr += '>sequence' + str(sequence_id) + '\n'
                 outstr += str(potential_sequence.seq) + '\n'
                 sequence_id += 1
         with open(os.path.join(args.output_folder, 'pcr_confirmed.fasta'), 'w') as f:
             f.write(outstr)
         # Step 4: Make sure potential amplicon is present in all of the inclusion genomes.
-        # TODO
-        # Step 5: Report to user.
+        # To do this: create blast database for each inclusion genome, and then blast each amplicon against
+        # each of the inclusion genomes. Ensure that top hit is a) full length and b) pretty much identical (> 99%?)
+        inclusion_pcr_tmp = os.path.join(args.output_folder, 'tmp', 'inclusion_pcr_test')
+        if not os.path.isdir(inclusion_pcr_tmp):
+            os.makedirs(inclusion_pcr_tmp)
+        # Copy each of the inclusion fastas to this output folder. (Change this to link if this ends up working)
+        inclusion_fastas = glob.glob(os.path.join(args.inclusion, '*.f*a'))
+        for inclusion_fasta in inclusion_fastas:
+            cmd = 'cp {inclusion_fasta} {inclusion_pcr_tmp}'.format(inclusion_fasta=inclusion_fasta,
+                                                                    inclusion_pcr_tmp=inclusion_pcr_tmp)
+            os.system(cmd)
+        # Now make a blast DB for each.
+        inclusion_fastas = glob.glob(os.path.join(inclusion_pcr_tmp, '*.f*a'))
+        for inclusion_fasta in inclusion_fastas:
+            cmd = 'makeblastdb -in {inclusion_fasta} -dbtype nucl'.format(inclusion_fasta=inclusion_fasta)
+            os.system(cmd)
+        # Finally, BLAST each of our 'confirmed' amplicons against each database, make sure we get a full length match
+        all_fasta_count = 0
+        for potential_sequence in SeqIO.parse(os.path.join(args.output_folder, 'pcr_confirmed.fasta'), 'fasta'):
+            in_all_fastas = True  # Assume each sequence is in all fastas. Set to False if necessary
+            for inclusion_fasta in inclusion_fastas:
+                blastn = NcbiblastnCommandline(db=inclusion_fasta,
+                                               outfmt=5)
+                stdout, stderr = blastn(stdin=str(potential_sequence.seq))
+                for record in NCBIXML.parse(StringIO(stdout)):
+                    # Attempt to parse top hit info. If, somehow, no hits exist, set our flag to False
+                    try:
+                        hit_length = record.alignments[0].hsps[0].align_length
+                        percent_id = float(record.alignments[0].hsps[0].identities)/float(args.amplicon_size)
+                        if hit_length != args.amplicon_size or percent_id < 0.99:
+                            in_all_fastas = False
+                    except IndexError:
+                        in_all_fastas = False
+            if in_all_fastas:
+                all_fasta_count += 1
+                with open(os.path.join(args.output_folder, 'really_confirmed.fasta'), 'a+') as f:
+                    f.write('>sequence{}\n'.format(all_fasta_count))
+                    f.write(str(potential_sequence.seq) + '\n')
 
-        # First step is to create fasta of exclusion kmers.
-        # out, err, cmd = kmc.dump(os.path.join(args.output_folder, 'exclusion_db'),
-        #                          os.path.join(args.output_folder, 'exclusion_kmers.txt'),
-        #                          returncmd=True)
-        # write_to_logfile(log, out, err, cmd)
-        # kmers_to_fasta(os.path.join(args.output_folder, 'exclusion_kmers.txt'),
-        #                os.path.join(args.output_folder, 'exclusion_kmers.fasta'))
-        # Now use bbduk with small kmer size (k=19) to filter out inclusion kmers that have exclusions that are close.
-        # Also have this work with low memory options.
-        # if args.low_memory:
-        #     out, err, cmd = bbtools.bbduk_filter(reference=os.path.join(args.output_folder, 'exclusion_kmers.fasta'),
-        #                                          forward_in=os.path.join(args.output_folder, 'inclusion_kmers.fasta'),
-        #                                          forward_out=os.path.join(args.output_folder, 'pcr_kmers.fasta'),
-        #                                          k='19', threads=str(args.threads), rskip=6,
-        #                                          returncmd=True)
-        #     write_to_logfile(log, out, err, cmd)
-        # else:
-        #     out, err, cmd = bbtools.bbduk_filter(reference=os.path.join(args.output_folder, 'exclusion_kmers.fasta'),
-        #                                          forward_in=os.path.join(args.output_folder, 'inclusion_kmers.fasta'),
-        #                                          forward_out=os.path.join(args.output_folder, 'pcr_kmers.fasta'),
-        #                                          k='19', threads=str(args.threads),
-        #                                          returncmd=True)
-        #     write_to_logfile(log, out, err, cmd)
-        # Next step: Get distances between potential primers by mapping back to a reference (if it exists) and getting
-        # distances.
-        # if len(glob.glob(os.path.join(args.inclusion, '*.f*a'))) > 0:
-        #     ref_fasta = glob.glob(os.path.join(args.inclusion, '*.f*a'))[0]
-        #     find_primer_distances(os.path.join(args.output_folder, 'pcr_kmers.fasta'), ref_fasta, args.output_folder,
-        #                           tmpdir=os.path.join(args.output_folder, 'pcrtmp'), threads=str(args.threads),
-        #                           logfile=log,
-        #                           min_amplicon_size=args.minimum_amplicon_size,
-        #                           max_amplicon_size=args.maximum_amplicon_size,
-        #                           inclusion_dir=args.inclusion)
     if not args.keep_tmpfiles:
         printtime('Removing unnecessary output files...', start)
         to_remove = glob.glob(os.path.join(args.output_folder, 'exclusion*'))
