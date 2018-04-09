@@ -49,7 +49,7 @@ def test_inclusion_fastas():
     kmc.dump('tests/tmp/testdb', 'tests/tmp/kmers')
     with open('tests/tmp/kmers') as f:
         lines = f.readlines()
-    assert lines == ['ATGTAGCATGTACGTACGTAGTCATGGGATA	1\n']
+    assert lines == ['ATGTAGCATGTACGTACGTAGTCATGGGATA	2\n']
     shutil.rmtree('tests/tmp')
 
 
@@ -77,7 +77,7 @@ def test_inclusion_fastqs():
     kmc.dump('tests/tmp/testdb', 'tests/tmp/kmers')
     with open('tests/tmp/kmers') as f:
         lines = f.readlines()
-    assert lines == ['ATGTAGCATGTACGTACGTAGTCATGGGATA	2\n']
+    assert lines == ['ATGTAGCATGTACGTACGTAGTCATGGGATA	4\n']
     shutil.rmtree('tests/tmp')
 
 
@@ -105,7 +105,7 @@ def test_inclusion_both():
     kmc.dump('tests/tmp/testdb', 'tests/tmp/kmers')
     with open('tests/tmp/kmers') as f:
         lines = f.readlines()
-    assert lines == ['ATGTAGCATGTACGTACGTAGTCATGGGATA	1\n']
+    assert lines == ['ATGTAGCATGTACGTACGTAGTCATGGGATA	6\n']
     shutil.rmtree('tests/tmp')
 
 
