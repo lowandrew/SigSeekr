@@ -41,7 +41,9 @@ Further details on each option can be found below.
 
 ```python
 usage: sigseekr.py [-h] -i INCLUSION -e EXCLUSION -o OUTPUT_FOLDER
-                   [-t THREADS] [-pcr] [-k] [-p PLASMID_FILTERING] [-l]
+                   [-s KMER_SIZE] [-t THREADS] [-pcr] [-k]
+                   [-p PLASMID_FILTERING] [-l]
+                   [-a AMPLICON_SIZE [AMPLICON_SIZE ...]]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -60,6 +62,10 @@ optional arguments:
   -o OUTPUT_FOLDER, --output_folder OUTPUT_FOLDER
                         Path to folder where you want to store output files.
                         Folder will be created if it does not exist.
+  -s KMER_SIZE, --kmer_size KMER_SIZE
+                        Kmer size used to search for sequences unique to
+                        inclusion. Default 31. No idea how changing this
+                        affects results. TO BE INVESTIGATED.
   -t THREADS, --threads THREADS
                         Number of threads to run analysis on. Defaults to
                         number of cores on your machine.
@@ -75,6 +81,10 @@ optional arguments:
   -l, --low_memory      Activate this flag to cause plasmid filtering to use
                         substantially less RAM (and go faster), at the cost of
                         some sensitivity.
+  -a AMPLICON_SIZE [AMPLICON_SIZE ...], --amplicon_size AMPLICON_SIZE [AMPLICON_SIZE ...]
+                        Desired size for PCR amplicons. Default 200. If you
+                        want to find more than one amplicon size, enter
+                        multiple, separated by spaces.
 
 ```
 
@@ -86,10 +96,13 @@ uncompressed, or raw FASTQ reads, in which case they can be either uncompressed 
 - `-e, --exclusion`: The collection of genomes you _do not_ want your signature sequences to match to. Same file format rules as the inclusion folder. 
 - `-o, --output_folder`: The folder where output files will be stored. Created if it doesn't exist. Recommended that you create a new folder for each run, as outputs will be overwritten from previous runs.
 - `-t, --threads`: Number of threads to run SigSeekr with. Recommended to leave at the default setting of all cores on your machine, as most programs in the SigSeekr pipeline scale very well with additional threads.
-- `-pcr`: Enable to create two additional output files. The first, `pcr_kmers.fasta`, contains inclusion kmers that _should_ be at least 3 SNPs away from any exclusion kmers, making them good potential candidates for PCR primers. The second, `amplicons.csv`, gives a list of all possible pairings of primer candidates, as well as the size of the amplicon that those two primer candidates would create.
 - `-k, --keep_tmpfiles`: By default, a number of fairly boring (but sometimes quite large) files are deleted at the end of a run to save on disk space. Specifying this option will keep them around if you want to inspect them more closely. Files that will be kept around with this option specified include the KMC inclusion and exclusion, and unique to inclusion databases (`inclusion_db`, `exclusion_db`, and `unique_to_inclusion_db`), FASTA files of all inclusion kmers (`inclusion_kmers.fasta`), and a bedfile showing coverage of inclusion kmers across one of the inclusion genomes specified (`regions_to_mask.bed`).
 - `-p, --plasmid_filtering`: If you're looking for sequences unique to a genome, you probably don't want them on mobile elements that might not be there the next time you look. To help alleviate this potential problem, you can specify the path to a FASTA-formatted database with this option. Any inclusion kmers found in the database will be excluded from further analysis. A relatively extensive plasmid database (~9000 RefSeq plasmids spanning all of Bacteria), can be downloaded with the following command: `https://ndownloader.figshare.com/files/9827323 && tar xf 9827323`.
 This will create a folder called `databases` in your present working directory. Within the folder, `plasmid_db.fasta` is the plasmid database.
 - `-l, --low_memory`: Using the above-mentioned plasmid database can be memory-intensive. To help alleviate that, add this flag, which will use less memory and go faster, at the cost of some sensitivity.
- 
+- `-pcr, --pcr`: Will attempt to find amplicons in your inclusion genomes that would be acceptable PCR products. By default,
+searches for 200 base pair amplicons, but can be changed to any size with the `-a` option. Output file for this is `confirmed_amplicons_X.fasta`,
+where X is your specified amplicon size
+- `-a, --amplicon_size`: Changes the size of the PCR amplicons that SigSeekr attempts to find. If given multiple arguments separated by spaces (i.e. `-a 200 300 400`),
+SigSeekr will attempt to find amplicons of all sizes specified
 
