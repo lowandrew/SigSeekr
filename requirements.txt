@@ -3,3 +3,4 @@ numpy==1.13.3
 OLCTools==0.3.60
 py==1.5.2
 pytest==3.2.5
+primer3-py==0.5.5
