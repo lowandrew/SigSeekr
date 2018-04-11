@@ -10,5 +10,5 @@ setup(
     author="Andrew Low",
     author_email="andrew.low@inspection.gc.ca",
     url="https://github.com/lowandrew/SigSeekr",
-    install_requires=['biopython', 'OLCTools', 'pytest']
+    install_requires=['biopython', 'OLCTools', 'pytest', 'primer3-py']
 )

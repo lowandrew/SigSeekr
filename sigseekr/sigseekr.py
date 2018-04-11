@@ -10,6 +10,7 @@ import glob
 import time
 import os
 import re
+import primer3
 from Bio import SeqIO
 from biotools import kmc
 from biotools import bbtools
@@ -516,6 +517,61 @@ def confirm_amplicons_in_all_inclusion_genomes(inclusion_fasta_dir, potential_am
     shutil.rmtree(tmpdir)
 
 
+def run_primer3(amplicon_files, output_file):
+    """
+    Runs primer3 via the primer3-py python binding (which means that the packaging system gets primer3 installed for us,
+    which is great). Given a list of fasta files that each contain sequence unique to our inclusion genome, will run
+    primer3 on each potential amplicon. Generates a csv file that gives the top 10 (or less if there are fewer) hits
+    for each sequence in each file, and tells the user left and right primers, as well as product size.
+    :param amplicon_files: List of potential amplicon fasta files.
+    :param output_file: Path to output csv file. Will be overwritten if it already exists.
+    """
+    with open(output_file, 'w') as f:
+        f.write('Left_Primer_Sequence,Right_Primer_Sequence,Amplicon_Size\n')
+    for amplicon_file in amplicon_files:
+        for potential in SeqIO.parse(amplicon_file, 'fasta'):
+            # Settings for primer design mostly taken from the defaults on primer3 web implementation found at
+            # http://bioinfo.ut.ee/primer3-0.4.0/
+            # I'm assuming defaults are generally what most people will want - should do some verification of this.
+            primer_info_dict = primer3.bindings.designPrimers({
+                'SEQUENCE_ID': 'test',
+                'SEQUENCE_TEMPLATE': str(potential.seq)
+                },
+                {
+                    'PRIMER_OPT_SIZE': 20,
+                    'PRIMER_PICK_INTERNAL_OLIGO': 0,
+                    'PRIMER_INTERNAL_MAX_SELF_END': 8,
+                    'PRIMER_MIN_SIZE': 18,
+                    'PRIMER_MAX_SIZE': 25,
+                    'PRIMER_OPT_TM': 60.0,
+                    'PRIMER_MIN_TM': 57.0,
+                    'PRIMER_MAX_TM': 63.0,
+                    'PRIMER_MIN_GC': 20.0,
+                    'PRIMER_MAX_GC': 80.0,
+                    'PRIMER_MAX_POLY_X': 100,
+                    'PRIMER_INTERNAL_MAX_POLY_X': 100,
+                    'PRIMER_SALT_MONOVALENT': 50.0,
+                    'PRIMER_DNA_CONC': 50.0,
+                    'PRIMER_MAX_NS_ACCEPTED': 0,
+                    'PRIMER_MAX_SELF_ANY': 12,
+                    'PRIMER_MAX_SELF_END': 8,
+                    'PRIMER_PAIR_MAX_COMPL_ANY': 12,
+                    'PRIMER_PAIR_MAX_COMPL_END': 8
+                })
+            # Now need to parse the giant result dict that primer3 makes, and return up to 10 (I guess? maybe change)
+            # primer pairs per potential amplicon.
+            # Step one of this: Figure out how many primer pairs we got.
+            num_pairs_found = primer_info_dict['PRIMER_PAIR_NUM_RETURNED']
+            if num_pairs_found > 10:  # Don't let there be more than 10 pairs found.
+                num_pairs_found = 10
+            with open(output_file, 'a+') as f:
+                for i in range(num_pairs_found):
+                    product_size = str(primer_info_dict['PRIMER_PAIR_{}_PRODUCT_SIZE'.format(i)])
+                    left_primer_seq = primer_info_dict['PRIMER_LEFT_{}_SEQUENCE'.format(i)]
+                    right_primer_seq = primer_info_dict['PRIMER_RIGHT_{}_SEQUENCE'.format(i)]
+                    f.write('{},{},{}\n'.format(left_primer_seq, right_primer_seq, product_size))
+
+
 def main(args):
     start = time.time()
     log = os.path.join(args.output_folder, 'sigseekr_log.txt')
@@ -624,8 +680,16 @@ def main(args):
                                                        tmpdir=os.path.join(args.output_folder, 'inclusion_pcr_tmp'),
                                                        amplicon_size=amp_size)
 
+        # Now that we've generated our amplicons, we need to iterate through them and run primer3 on each, then
+        # report back to the user primer pairs, amplicon sizes, and other relevant stats (melting temps, etc)
+        if args.primer3:
+            printtime('Running Primer3 on potential amplicons...', start)
+            potential_amplicon_files = glob.glob(os.path.join(args.output_folder, 'confirmed_amplicons_*.fasta'))
+            run_primer3(amplicon_files=potential_amplicon_files,
+                        output_file=os.path.join(args.output_folder, 'amplicons.csv'))
+
     if not args.keep_tmpfiles:
-        printtime('Removing unnecessary output files...', start)
+        printtime('Removing temporary files...', start)
         to_remove = glob.glob(os.path.join(args.output_folder, '*exclusion*fasta*'))
         to_remove += glob.glob(os.path.join(args.output_folder, 'unique*'))
         to_remove += glob.glob(os.path.join(args.output_folder, '*kmc*'))
@@ -694,6 +758,12 @@ if __name__ == '__main__':
                         type=int,
                         help='Desired size for PCR amplicons. Default 200. If you want to find more than one amplicon'
                              ' size, enter multiple, separated by spaces.')
+    parser.add_argument('-p3', '--primer3',
+                        default=False,
+                        action='store_true',
+                        help='If enabled, will run primer3 on your potential amplicons and generate a list of primers '
+                             'and the sizes of their products. This output will be found in a file called '
+                             'amplicons.csv in the output directory specified.')
     args = parser.parse_args()
     # Check that dependencies are present, warn users if they aren't.
     dependencies = ['bbmap.sh', 'bbduk.sh', 'kmc', 'bedtools', 'samtools', 'kmc_tools', 'blastn', 'makeblastdb']
