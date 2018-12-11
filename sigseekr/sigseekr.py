@@ -462,7 +462,7 @@ def ensure_amplicons_not_in_exclusion(exclusion_blastdb, potential_amplicons, co
 
 
 def confirm_amplicons_in_all_inclusion_genomes(inclusion_fasta_dir, potential_amplicon_file, confirmed_amplicon_file,
-                                               tmpdir='tmp', logfile=None, amplicon_size=200):
+                                               tmpdir='tmp', logfile=None, amplicon_size=200, max_potential_amplicons=200):
     """
     Provided with a directory containing fasta files you want your amplicons to match to and a fasta file where each
     entry is a potential amplicon, will ensure that each genome contains a full-length match with at least 99 percent
@@ -514,6 +514,8 @@ def confirm_amplicons_in_all_inclusion_genomes(inclusion_fasta_dir, potential_am
             with open(confirmed_amplicon_file, 'a+') as f:
                 f.write('>sequence{}\n'.format(all_fasta_count))
                 f.write(str(potential_sequence.seq) + '\n')
+        if all_fasta_count >= max_potential_amplicons:
+            break
     shutil.rmtree(tmpdir)
 
 
@@ -678,7 +680,8 @@ def main(args):
                                                        confirmed_amplicon_file=os.path.join(args.output_folder, 'confirmed_amplicons_{}.fasta'.format(amp_size)),
                                                        logfile=log,
                                                        tmpdir=os.path.join(args.output_folder, 'inclusion_pcr_tmp'),
-                                                       amplicon_size=amp_size)
+                                                       amplicon_size=amp_size,
+                                                       max_potential_amplicons=args.max_potential_amplicons)
 
         # Now that we've generated our amplicons, we need to iterate through them and run primer3 on each, then
         # report back to the user primer pairs, amplicon sizes, and other relevant stats (melting temps, etc)
@@ -764,6 +767,11 @@ if __name__ == '__main__':
                         help='If enabled, will run primer3 on your potential amplicons and generate a list of primers '
                              'and the sizes of their products. This output will be found in a file called '
                              'amplicons.csv in the output directory specified.')
+    parser.add_argument('-m', '--max_potential_amplicons',
+                        type=int,
+                        default=200,
+                        help='If inclusion sequences are very different from exclusion sequences, amplicon generation '
+                             'can take forever. Change the number of potential amplicons with this option (default 200)')
     args = parser.parse_args()
     # Check that dependencies are present, warn users if they aren't.
     dependencies = ['bbmap.sh', 'bbduk.sh', 'kmc', 'bedtools', 'samtools', 'kmc_tools', 'blastn', 'makeblastdb']
