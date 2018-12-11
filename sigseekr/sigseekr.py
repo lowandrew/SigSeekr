@@ -348,7 +348,7 @@ def generate_bedfile(ref_fasta, kmers, output_bedfile, tmpdir='bedgentmp', threa
     shutil.rmtree(tmpdir)
 
 
-def split_sequences_into_amplicons(input_sequence_file, output_amplicon_file, amplicon_length=200):
+def split_sequences_into_amplicons(input_sequence_file, output_amplicon_file, amplicon_length=200, max_potential_amplicons=200):
     """
     Given an input fasta file, will find potential amplicons of amplicon_length. Uses a sliding-windowy approach,
     so if a contig is 900 bp long and amplicon length is 200, will get 4 amplicons - positions 1-200, 201-400,
@@ -373,7 +373,8 @@ def split_sequences_into_amplicons(input_sequence_file, output_amplicon_file, am
                         seq_id += 1
                     i += amplicon_length
                 f.write(outstr)
-
+            if seq_id >= max_potential_amplicons:
+                break
 
 def make_all_exclusion_blast_db(exclusion_folder, combined_exclusion_fasta, logfile=None):
     """
@@ -400,7 +401,7 @@ def make_all_exclusion_blast_db(exclusion_folder, combined_exclusion_fasta, logf
         subprocess.call(cmd, shell=True)
 
 
-def ensure_amplicons_not_in_exclusion(exclusion_blastdb, potential_amplicons, confirmed_amplicons):
+def ensure_amplicons_not_in_exclusion(exclusion_blastdb, potential_amplicons, confirmed_amplicons, max_potential_amplicons=200):
     """
     Given a blast database of sequences we do not want amplicons to match to and a fasta file containing our
     potential amplicons, will blastn potential amplicons to make sure that they don't match too closely to the
@@ -457,6 +458,8 @@ def ensure_amplicons_not_in_exclusion(exclusion_blastdb, potential_amplicons, co
             outstr += '>sequence' + str(sequence_id) + '\n'
             outstr += str(potential_sequence.seq) + '\n'
             sequence_id += 1
+        if sequence_id > max_potential_amplicons:
+            break
     with open(confirmed_amplicons, 'w') as f:
         f.write(outstr)
 
@@ -666,15 +669,19 @@ def main(args):
             # amplicon length.
             split_sequences_into_amplicons(input_sequence_file=os.path.join(args.output_folder, 'sigseekr_result.fasta'),
                                            output_amplicon_file=os.path.join(args.output_folder, 'potential_pcr_{}.fasta'.format(amp_size)),
-                                           amplicon_length=amp_size)
+                                           amplicon_length=amp_size,
+                                           max_potential_amplicons=args.max_potential_amplicons)
             # Step 2: Blast each potential amplicon against Blast DB - keep only those that do not have any matches (for
             # now - may need to adjust this to keeping some if they have a certain e-value/length/percent id).
+            printtime('Checking things are not in exclusion...', start)
             ensure_amplicons_not_in_exclusion(exclusion_blastdb=os.path.join(args.output_folder, 'exclusion_combined.fasta'),
                                               potential_amplicons=os.path.join(args.output_folder, 'potential_pcr_{}.fasta'.format(amp_size)),
-                                              confirmed_amplicons=os.path.join(args.output_folder, 'not_in_exclusion_amplicons.fasta'))
+                                              confirmed_amplicons=os.path.join(args.output_folder, 'not_in_exclusion_amplicons.fasta'),
+                                              max_potential_amplicons=args.max_potential_amplicons)
             # Step 3: Make sure potential amplicon is present in all of the inclusion genomes.
             # To do this: create blast database for each inclusion genome, and then blast each amplicon against
             # each of the inclusion genomes. Ensure that top hit is a) full length and b) pretty much identical (> 99%?)
+            printtime('Checking things are in inclusion...', start)
             confirm_amplicons_in_all_inclusion_genomes(inclusion_fasta_dir=args.inclusion,
                                                        potential_amplicon_file=os.path.join(args.output_folder, 'not_in_exclusion_amplicons.fasta'),
                                                        confirmed_amplicon_file=os.path.join(args.output_folder, 'confirmed_amplicons_{}.fasta'.format(amp_size)),
